@@ -26,6 +26,7 @@ export default class LoginScreenNum extends Component {
             isLoadingTicket: true,
             isLoadingOperation: true
         }
+         
 
     }
 
@@ -45,7 +46,8 @@ export default class LoginScreenNum extends Component {
         fetch(`${global.hostname}/complete/bundle`)
             .then((response) => response.json())
             .then(async (responseJson) => {
-                await AsyncStorage.setItem('complete_bundle', JSON.stringify(responseJson));
+                
+                await AsyncStorage.setItem('complete_bundles', JSON.stringify(responseJson));
                 await this.setState({
                     isLoadingBundle: false
                 });
@@ -142,9 +144,9 @@ export default class LoginScreenNum extends Component {
     redirect() {
         const isLoading = 
         this.state.isLoadingEmployee ||
-        this.state.isLoadingBundle ||
-        this.state.isLoadingTicket ||
-        this.state.isLoadingOperation;
+        this.state.isLoadingBundle 
+        // this.state.isLoadingTicket ||
+        // this.state.isLoadingOperation;
 
         if (!isLoading) {
             Actions.selectBundleScreen();

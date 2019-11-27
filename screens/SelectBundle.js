@@ -45,8 +45,8 @@ export default class SelectBundle extends React.Component {
             efficiency: {},
             employee: props.employee,
 
-
-            completeBundle: [],
+            complete_bundles: [],
+            tickets_pending: [],
 
             bundles: [],
             operations: [],
@@ -63,24 +63,17 @@ export default class SelectBundle extends React.Component {
     }
 
     async updateValues() {
-        this.setState({
+        await this.setState({
             isLoading: true
         });
 
         const employee = JSON.parse(await AsyncStorage.getItem("employee"));
-
-        const bundles = JSON.parse(await AsyncStorage.getItem("bundle"));
-        const operations = JSON.parse(await AsyncStorage.getItem("operation"));
-        const tickets = JSON.parse(await AsyncStorage.getItem("ticket"));
-
+        const complete_bundles = JSON.parse(await AsyncStorage.getItem("complete_bundles"));
         this.setState({
             isLoading: false,
             employee,
-            operations,
-            tickets,
-            bundles
+            complete_bundles
         });
-
     }
 
 
@@ -123,25 +116,73 @@ export default class SelectBundle extends React.Component {
         );
     }
 
-    findTicket() {
-        const bundle_obj = this.state.bundle;
-        const operation_obj = this.state.operation;
+//SCREEEN ACTIONS
 
-        if (bundle_obj && operation_obj) {
+    async _selectBundle(bundle) {
+        await this.setState({
+            ticket: null
+        });
+        //Update selected bundle
+        const complete_bundles = this.state.complete_bundles.map(b => ({
+            ...b,
+            isSelected: b.id == bundle.id
+        }));
 
-            const bundle = bundle_obj.bundle;
-            const operation = operation_obj.operation;
-            if (bundle && operation) {
-                console.log("SET TICKET:" + bundle + ' - ' + operation);
-                this.setState({
-                    ticket: this.state.tickets.filter(t => t.bundle == bundle && t.operation == operation)[0]
-                });
-            }
-        }
+        console.log(bundle);
+        await this.setState({
+            bundle,
+            complete_bundles
+        });
+    }
+
+    async _selectOperation(operation) {
+
+        //Update selected operation
+        const operations = this.state.operations.map(o => ({
+            ...o,
+            isSelected: o.operation == operation.operation
+        }));
+
+        await this.setState({
+            operation,
+            operations
+        });
+
+    }
+
+    _onPress_Start() {
+        this.setTimerVisible(true);
+        this.startCountDown();
+        const tickets_pending = this.state.tickets_pending;
+        tickets_pending.push({
+            ticket: this.state.ticket.id,
+            start_time: new Date().getTime()
+        });
+        this.setState({
+            tickets_pending
+        })
+    }
+
+    _onPress_Finish() {
+        clearInterval(this.intervalCountdown);
+        this.setTimerVisible(false);
+        const tickets_pending = this.state.tickets_pending;
+        const ticket = tickets_pending.filter(t => t.id == this.state.ticket.id);
+        tickets_pending.push({
+            ...ticket,
+            start_time: new Date().getTime()
+        });
+
+        this.setState({
+            tickets_pending
+        });
+
+        console.log(tickets_pending);
+
     }
 
 
-    async _selectBundle(bundle) {
+    async old_selectBundle(bundle) {
         await this.setState({
             ticket: null
         });
@@ -184,7 +225,7 @@ export default class SelectBundle extends React.Component {
         this.findTicket();
     }
 
-    async _selectOperation(operation) {
+    async old_selectOperation(operation) {
 
         //Update selected operation
         const operations = this.state.operations.map(o => ({
@@ -200,7 +241,24 @@ export default class SelectBundle extends React.Component {
         this.findTicket();
     }
 
-    _onPress_Start() {
+    old_findTicket() {
+        const bundle_obj = this.state.bundle;
+        const operation_obj = this.state.operation;
+
+        if (bundle_obj && operation_obj) {
+
+            const bundle = bundle_obj.bundle;
+            const operation = operation_obj.operation;
+            if (bundle && operation) {
+                console.log("SET TICKET:" + bundle + ' - ' + operation);
+                this.setState({
+                    ticket: this.state.tickets.filter(t => t.bundle == bundle && t.operation == operation)[0]
+                });
+            }
+        }
+    }
+
+    old_onPress_Start() {
         fetch(`${global.hostname}/start_ticket/${this.state.employee.empnum}/${this.state.ticket.ticket}`)
             .then((response) => response.json())
             .then((responseJson) => {
@@ -212,7 +270,7 @@ export default class SelectBundle extends React.Component {
             });
     }
 
-    _onPress_Finish() {
+    old_onPress_Finish() {
         clearInterval(this.intervalCountdown);
 
         //STORE DATABASE LOGIC
@@ -295,14 +353,14 @@ export default class SelectBundle extends React.Component {
 
 
     render() {
-        if (this.state.isLoading || !this.state.operations.length > 0 || !this.state.bundles.length > 0) {
+        if (this.state.isLoading || !this.state.complete_bundles.length > 0) {
             return (
                 <LoadScreen />
             )
         }
         return (
             <View style={{ ...styles.container, backgroundColor: '#000' }}>
-          
+
                 <View style={styles.containerEarn}>
                     <Text style={{ ...styles.titleText, color: 'white' }}>Earnings: {"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
                 </View>
@@ -310,11 +368,11 @@ export default class SelectBundle extends React.Component {
                     <View style={styles.containerItem}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Bundle #</Text>
                         <ScrollView style={styles.contentScroll}>
-                            {this.state.bundles.map(b => (
-                                <TouchableOpacity key={b.bundle} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)}>
+                            {this.state.complete_bundles.map(b => (
+                                <TouchableOpacity key={b.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)}>
                                     <View style={{ ...styles.opItem, backgroundColor: b.isSelected ? '#90cc55' : '#696969' }}>
                                         <Text style={{ color: '#FFF', margin: 5 }}>
-                                            {b.bundle}
+                                            {b.id}
                                         </Text>
                                     </View>
                                 </TouchableOpacity>
@@ -324,12 +382,12 @@ export default class SelectBundle extends React.Component {
 
                     <View style={styles.containerItem}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Operation #</Text>
-                        <ScrollView style={styles.contentScroll}>
-                            {this.state.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
-                                <TouchableOpacity key={o.operation} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
+                        <ScrollView style={styles.contentScroll}>   
+                            {this.state.bundle ? this.state.bundle.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
+                                <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
                                     <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#90cc55' : '#696969' }}>
                                         <Text style={{ color: '#FFF', margin: 5 }}>
-                                            {o.operation}
+                                            {o.id}
                                         </Text>
 
                                         {o.isFinished === null || o.isFinished === undefined ?
@@ -342,25 +400,25 @@ export default class SelectBundle extends React.Component {
                                         }
                                     </View>
                                 </TouchableOpacity>
-                            ))}
+                            )) : null}
                         </ScrollView>
                     </View>
 
                     <View style={styles.containerItem}>
-                        
+
                         <TouchableOpacity style={{ ...styles.buttonStart, backgroundColor: this.state.ticket ? '#90cc55' : '#696969' }} onPress={this.state.ticket ? this._onPress_Start : null} activeOpacity={1}>
                             <Text style={styles.textScan} >START</Text>
                         </TouchableOpacity>
 
                         <Text style={{ color: '#FFF', marginTop: 20 }}>
                             {this.state.ticket ?
-                                "Ticket: " + this.state.ticket.ticket + "\n" + 
-                                "Quantity: " + this.state.ticket.quantity + "\n" + 
-                                "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format()  + "\n" + 
-                                "Color: " + this.state.ticket.color + "\n" + 
+                                "Ticket: " + this.state.ticket.id + "\n" +
+                                "Quantity: " + this.state.ticket.quantity + "\n" +
+                                "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format() + "\n" +
+                                "Color: " + this.state.ticket.color + "\n" +
                                 "Style: " + this.state.ticket.style + "\n"
-                                
-                                
+
+
                                 :
                                 this.state.ticket === 'undefined' ? 'Ticket not found' : 'Select bundle and operation'
                             }
@@ -472,16 +530,16 @@ const styles = StyleSheet.create({
     containerEarn: {
         alignItems: "center",
         justifyContent: 'center',
-        width: Math.round(DEVICE_HEIGHT), 
+        width: Math.round(DEVICE_HEIGHT),
         height: 50
     },
     containerItem: {
         alignItems: "center",
         justifyContent: 'center',
-       backgroundColor:'#0F0F0F',
-       marginVertical: 2,
-       width: Math.round(DEVICE_WIDTH * 0.3), 
-       height: Math.round(DEVICE_HEIGHT * 0.9) 
+        backgroundColor: '#0F0F0F',
+        marginVertical: 2,
+        width: Math.round(DEVICE_WIDTH * 0.3),
+        height: Math.round(DEVICE_HEIGHT * 0.9)
     },
     contentResults: {
         flexDirection: 'row',
