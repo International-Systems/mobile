@@ -36,8 +36,6 @@ export default class LoginScreenNum extends Component {
         }
         this._keyPressed = this._keyPressed.bind(this);
         this._doLogin = this._doLogin.bind(this);
-
-       
     }
 
     componentDidMount(){
@@ -46,7 +44,6 @@ export default class LoginScreenNum extends Component {
     }
 
     async getStorage() {
-
         const employee = await AsyncStorage.getItem("employee");
         const host = await AsyncStorage.getItem("host");
 
@@ -61,8 +58,6 @@ export default class LoginScreenNum extends Component {
             }
         });
     }
-
-
     async setStorage(){
         await AsyncStorage.setItem('employee', JSON.stringify(this.state.employee));
         await AsyncStorage.setItem('host', JSON.stringify(this.state.host));
@@ -124,10 +119,13 @@ export default class LoginScreenNum extends Component {
     }
 
     _doLogin() {
+        console.log("Doing login")
         this.setState({ isLoading: true });
         fetch(`${global.hostname}/employee/${this.state.employee.empnum}`)
         .then((response) => response.json())
         .then(async (employee) => {
+            console.log("Employee received");
+
             this.setState({ isLoading: false });
             if(employee.empnum){
                 await AsyncStorage.setItem('employee', JSON.stringify(employee));
@@ -137,6 +135,7 @@ export default class LoginScreenNum extends Component {
             }
         })
         .catch((error) => {
+            console.log(error);
             this.setState({ isLoading: false });
            alert(JSON.stringify(error));
         });
@@ -248,7 +247,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#ffd500'
     },
     textKeyboard_Key: {
-        fontSize: Math.round(DEVICE_WIDTH * 0.2)
+        fontSize: Math.round(DEVICE_HEIGHT * 0.1)
     },
     textKeyboard_Key_2: {
         fontSize: 50

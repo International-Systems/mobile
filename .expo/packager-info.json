@@ -1,9 +1,9 @@
 {
   "devToolsPort": 19002,
-  "expoServerPort": null,
-  "packagerPort": null,
-  "packagerPid": null,
-  "expoServerNgrokUrl": null,
-  "packagerNgrokUrl": null,
-  "ngrokPid": null
+  "expoServerPort": 19000,
+  "packagerPort": 19001,
+  "packagerPid": 36770,
+  "expoServerNgrokUrl": "https://mc-mia.guigng.mobile.exp.direct",
+  "packagerNgrokUrl": "https://packager.mc-mia.guigng.mobile.exp.direct",
+  "ngrokPid": 36782
 }

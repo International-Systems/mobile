@@ -31,11 +31,33 @@ export default class LoginScreenNum extends Component {
 
 
     componentDidMount(){
-        this.updateBundle();
-        this.updateTicket();
-        this.updateOperation();
-        this.updateEmployee();
+        // this.updateBundle();
+        // this.updateTicket();
+        // this.updateOperation();
 
+        this.updateCompleteBundle();
+        this.updateEmployee();
+    }
+
+
+
+    async updateCompleteBundle() {
+        fetch(`${global.hostname}/complete/bundle`)
+            .then((response) => response.json())
+            .then(async (responseJson) => {
+                await AsyncStorage.setItem('complete_bundle', JSON.stringify(responseJson));
+                await this.setState({
+                    isLoadingBundle: false
+                });
+                this.redirect();
+            })
+            .catch(async (error) => {
+                console.error(error);
+                await this.setState({
+                    isLoadingBundle: false
+                });
+                this.redirect();
+            });
     }
 
 

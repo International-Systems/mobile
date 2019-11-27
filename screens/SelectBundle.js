@@ -18,6 +18,7 @@ import {
 
 import LoadScreen from './LoadScreen';
 import { Ionicons } from '@expo/vector-icons';
+import { ScreenOrientation } from 'expo';
 
 //3th parties components
 import SearchableDropdown from 'react-native-searchable-dropdown';
@@ -44,10 +45,12 @@ export default class SelectBundle extends React.Component {
             efficiency: {},
             employee: props.employee,
 
+
+            completeBundle: [],
+
             bundles: [],
             operations: [],
             tickets: [],
-
 
             bundle: null,
             operation: null,
@@ -80,6 +83,11 @@ export default class SelectBundle extends React.Component {
 
     }
 
+
+    async changeScreenOrientation() {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
+    }
+
     componentDidMount() {
         setInterval(() => {
             this.setState({
@@ -88,6 +96,7 @@ export default class SelectBundle extends React.Component {
         }, 1000);
 
         this.updateValues();
+        this.changeScreenOrientation();
 
     }
 
@@ -103,7 +112,6 @@ export default class SelectBundle extends React.Component {
     setTimerVisible(visible) {
         this.setState({ timerVisible: visible });
     }
-
 
     startCountDown() {
         this.setState({ timeCountDown: this.state.ticket.time * 60 });
@@ -134,7 +142,6 @@ export default class SelectBundle extends React.Component {
 
 
     async _selectBundle(bundle) {
-
         await this.setState({
             ticket: null
         });
@@ -163,9 +170,6 @@ export default class SelectBundle extends React.Component {
             })
             //ORDER true, false, null
             .sort(function (a, b) { return b.isFinished === null ? -1 : b.isFinished - a.isFinished });
-
-
-
 
         //Update selected bundle
         const bundles = this.state.bundles.map(b => ({
@@ -236,7 +240,6 @@ export default class SelectBundle extends React.Component {
                         console.log("Rate: " + this.state.employee.rate);
                         console.log("Hrs: " + this.state.employee.current_hr_today);
 
-
                         this.setState({
                             efficiency,
                             employee: {
@@ -299,38 +302,16 @@ export default class SelectBundle extends React.Component {
         }
         return (
             <View style={{ ...styles.container, backgroundColor: '#000' }}>
-                <View style={styles.header}>
-                    <TouchableHighlight
-                        onPress={() => { this.setMenuVisible(true); }}
-                        style={styles.buttonMenu}>
-                        <Text style={styles.buttonMenuText}>Menu</Text>
-                    </TouchableHighlight>
-
-                    <Modal animationType="slide" transparent={false}
-                        visible={this.state.menuVisible}
-                        onRequestClose={() => { }}>
-
-                        <View style={styles.container}>
-                            <View style={styles.containerItem}>
-                                <TouchableHighlight
-                                    onPress={() => { this.setMenuVisible(false); }}
-                                    style={styles.buttonMenuClose}>
-                                    <Text>close</Text>
-
-                                </TouchableHighlight>
-                            </View>
-                        </View>
-                    </Modal>
-                </View>
-                <View style={{ ...styles.containerItem, backgroundColor: '' }}>
+          
+                <View style={styles.containerEarn}>
                     <Text style={{ ...styles.titleText, color: 'white' }}>Earnings: {"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
                 </View>
                 <View style={styles.containerContent}>
-                    <View style={{ ...styles.containerItem, width: '45%', backgroundColor: '', margin: 10,   height: (Math.round(DEVICE_HEIGHT * 0.3))  }}>
+                    <View style={styles.containerItem}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Bundle #</Text>
                         <ScrollView style={styles.contentScroll}>
                             {this.state.bundles.map(b => (
-                                <TouchableOpacity style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)}>
+                                <TouchableOpacity key={b.bundle} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)}>
                                     <View style={{ ...styles.opItem, backgroundColor: b.isSelected ? '#90cc55' : '#696969' }}>
                                         <Text style={{ color: '#FFF', margin: 5 }}>
                                             {b.bundle}
@@ -341,11 +322,11 @@ export default class SelectBundle extends React.Component {
                         </ScrollView>
                     </View>
 
-                    <View style={{ ...styles.containerItem, width: '45%', backgroundColor: '', margin: 10,  height: (Math.round(DEVICE_HEIGHT * 0.3))  }}>
+                    <View style={styles.containerItem}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Operation #</Text>
                         <ScrollView style={styles.contentScroll}>
-                            {this.state.operations.map(o => (
-                                <TouchableOpacity style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
+                            {this.state.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
+                                <TouchableOpacity key={o.operation} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
                                     <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#90cc55' : '#696969' }}>
                                         <Text style={{ color: '#FFF', margin: 5 }}>
                                             {o.operation}
@@ -365,18 +346,26 @@ export default class SelectBundle extends React.Component {
                         </ScrollView>
                     </View>
 
-                    <View style={{ ...styles.containerItem, width: '45%', backgroundColor: '', margin: 10 }}>
-                        <Text style={{ color: '#FFF' }}>
+                    <View style={styles.containerItem}>
+                        
+                        <TouchableOpacity style={{ ...styles.buttonStart, backgroundColor: this.state.ticket ? '#90cc55' : '#696969' }} onPress={this.state.ticket ? this._onPress_Start : null} activeOpacity={1}>
+                            <Text style={styles.textScan} >START</Text>
+                        </TouchableOpacity>
+
+                        <Text style={{ color: '#FFF', marginTop: 20 }}>
                             {this.state.ticket ?
-                                "Ticket: " + this.state.ticket.ticket
+                                "Ticket: " + this.state.ticket.ticket + "\n" + 
+                                "Quantity: " + this.state.ticket.quantity + "\n" + 
+                                "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format()  + "\n" + 
+                                "Color: " + this.state.ticket.color + "\n" + 
+                                "Style: " + this.state.ticket.style + "\n"
+                                
+                                
                                 :
                                 this.state.ticket === 'undefined' ? 'Ticket not found' : 'Select bundle and operation'
                             }
                         </Text>
                     </View>
-                    <TouchableOpacity style={{...styles.buttonStart, backgroundColor: this.state.ticket ? '#90cc55' : '#696969'}} onPress={this.state.ticket ? this._onPress_Start : null} activeOpacity={1}>
-                        <Text style={styles.textScan} >START</Text>
-                    </TouchableOpacity>
                 </View>
 
                 {this.state.efficiencyVisible ?
@@ -390,7 +379,7 @@ export default class SelectBundle extends React.Component {
                         <View style={{ ...styles.container, justifyContent: 'center', backgroundColor: '#c0c1b0' }}>
                             <View style={styles.containerItem}>
                                 <View style={styles.containerItem}>
-                                    <Text style={styles.titleTextTimer}>Results</Text>
+
                                     {this.state.efficiency.efficiency > 0.95 ?
                                         <Text style={styles.titleTextTimer}>Excelent!</Text>
                                         :
@@ -419,12 +408,7 @@ export default class SelectBundle extends React.Component {
                                             <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[2][1]}</Text>
                                             <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[3][1]}</Text>
                                         </View>
-
                                     </View>
-
-
-
-
                                 </View>
                                 <TouchableHighlight
                                     onPress={() => {
@@ -469,6 +453,10 @@ export default class SelectBundle extends React.Component {
 const DEVICE_WIDTH = Math.round(Dimensions.get('window').width);
 const DEVICE_HEIGHT = Math.round(Dimensions.get('window').height);
 
+console.log('Width: ', DEVICE_WIDTH);
+console.log('Height: ', DEVICE_HEIGHT);
+
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -479,13 +467,21 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         flexDirection: 'row',
         alignItems: "center",
+        justifyContent: 'center'
+    },
+    containerEarn: {
+        alignItems: "center",
         justifyContent: 'center',
+        width: Math.round(DEVICE_HEIGHT), 
+        height: 50
     },
     containerItem: {
-        padding: 15,
-        borderRadius: 10,
-        backgroundColor: 'white',
-        alignItems: "center"
+        alignItems: "center",
+        justifyContent: 'center',
+       backgroundColor:'#0F0F0F',
+       marginVertical: 2,
+       width: Math.round(DEVICE_WIDTH * 0.3), 
+       height: Math.round(DEVICE_HEIGHT * 0.9) 
     },
     contentResults: {
         flexDirection: 'row',
@@ -495,9 +491,9 @@ const styles = StyleSheet.create({
         zIndex: 400
     },
     contentScroll: {
-        marginLeft: 10, 
-        marginRight: 10, 
-      
+        marginLeft: 10,
+        marginRight: 10,
+
     },
     header: {
         height: 50,
@@ -518,7 +514,6 @@ const styles = StyleSheet.create({
     },
     buttonMenu: {
         height: '100%'
-
     },
     buttonMenuText: {
         color: 'white'
@@ -528,10 +523,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: '#90cc55',
         fontSize: 30,
-
-        color: 'white',
-        height: 50,
-        width: '100%'
+        padding: 10,
+        color: 'white'
     },
     buttonFinish: {
         alignItems: 'center',
