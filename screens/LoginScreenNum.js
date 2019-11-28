@@ -190,14 +190,14 @@ export default class LoginScreenNum extends Component {
                         <Text style={styles.textKeyboard_Key}>9</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.containerKeyboard_Key} activeOpacity={0.2} onPress={() => this._keyPressed("del")}>
-                        <Ionicons name="md-backspace" size={26}></Ionicons>
+                        <Ionicons name="md-backspace" size={Math.round(DEVICE_HEIGHT * 0.1)}></Ionicons>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.containerKeyboard_Key} activeOpacity={0.2} onPress={() => this._keyPressed(0)}>
                         <Text style={styles.textKeyboard_Key}>0</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.containerKeyboard_Key} activeOpacity={0.2} onPress={this._doLogin}>
-                        <Ionicons name="md-key" size={26}></Ionicons>
+                        <Ionicons name="md-key" size={Math.round(DEVICE_HEIGHT * 0.1)}></Ionicons>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.containerStatus}>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     containerNumber: {
         height: '40%',
         padding: 20,
-        backgroundColor: '#9F9F9F',
+        backgroundColor: '#f5e000',
         alignItems: 'center',
         justifyContent: 'center'
     },
@@ -242,15 +242,17 @@ const styles = StyleSheet.create({
         flex: 1,
         flexWrap: 'wrap',
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-around',
         width: '100%',
-        height: 400,
         backgroundColor: '#f5d000',
         height: Math.round(DEVICE_HEIGHT * 0.6)
     },
     containerKeyboard_Key: {
         width: '33%',
+        height: Math.round(DEVICE_HEIGHT * 0.6/4),
         alignItems: 'center',
+        marginBottom: 2,
+        borderRadius: 5,
         justifyContent: 'center',
         backgroundColor: '#ffd500'
     },
