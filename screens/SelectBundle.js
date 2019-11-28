@@ -27,7 +27,7 @@ import { Actions } from 'react-native-router-flux';
 import moment from "moment";
 import momentDurationFormatSetup from "moment-duration-format";
 
-
+let renderTime = 0;
 
 export default class SelectBundle extends React.Component {
 
@@ -36,11 +36,20 @@ export default class SelectBundle extends React.Component {
         this.state = {
             isLoading: true,
 
+            syncBG: {
+                lastDate: new Date(),
+                isSyncTickets: false,
+                isSyncBundles: false
+            },
+
             menuVisible: false,
             efficiencyVisible: false,
             timerVisible: false,
 
-            currentDate: moment().format("MMMM Do YYYY, h:mm:ss a"),
+            currentDate: new Date(),
+            startDateAdjust: new Date(),
+            diffTime: 0,
+            timerUpdateDate: null,
 
             efficiency: {},
             employee: props.employee,
@@ -62,13 +71,26 @@ export default class SelectBundle extends React.Component {
         this._onPress_Finish = this._onPress_Finish.bind(this);
     }
 
-    async updateValues() {
-        await this.setState({
-            isLoading: true
-        });
+    async updateValues(isBackground) {
+        if (!isBackground) {
+            await this.setState({
+                isLoading: true
+            });
+        }
 
         const employee = JSON.parse(await AsyncStorage.getItem("employee"));
-        const complete_bundles = JSON.parse(await AsyncStorage.getItem("complete_bundles"));
+        let complete_bundles = JSON.parse(await AsyncStorage.getItem("complete_bundles"));
+        if (this.state.bundle && isBackground) {
+            complete_bundles = complete_bundles.map(b => ({
+                ...b,
+                isSelected: b.id == this.state.bundle.id,
+                operations: b.operations.map(o => ({
+                    ...o,
+                    isSelected: o.id == this.state.operation
+                }))
+            }));
+        }
+
         this.setState({
             isLoading: false,
             employee,
@@ -77,21 +99,45 @@ export default class SelectBundle extends React.Component {
     }
 
 
+    updateCurrentTime() {
+        const currentDate = new Date();
+        const startTime = new Date(this.state.employee.start_timestamp);
+        const diffTime = currentDate.getTimezoneOffset();
+        let startTimeDateAdjust = startTime.getTime() - (diffTime * 60 * 1000);
+        startTimeDateAdjust = startTimeDateAdjust - (currentDate < startTimeDateAdjust ? 86400000 : 0);
+        const startDateAdjust = new Date(startTimeDateAdjust);
+        // console.log("Start time: " + startTime.toISOString());
+        // console.log("Current Date: " + currentDate.toISOString());
+        // console.log("Diff time: " + diffTime);
+        // console.log("Start time.adj: " + startDateAdjust.toISOString());
+        const current_hr_today = (currentDate.getTime() - startTimeDateAdjust) / 3600000;
+
+        this.setState({
+            currentDate,
+            startDateAdjust,
+            diffTime,
+            employee: {
+                ...this.state.employee,
+                current_hr_today,
+                salary_today: current_hr_today * this.state.employee.rate
+            }
+        });
+    }
+
     async changeScreenOrientation() {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
     }
 
     componentDidMount() {
-        setInterval(() => {
-            this.setState({
-                currentDate: moment().format("MMMM Do YYYY, h:mm:ss a"),
-            })
-        }, 1000);
+        this.setState({
+            timerUpdateDate: setInterval(() => this.updateCurrentTime(), 1000)
+        });
 
-        this.updateValues();
+        this.updateValues(false);
         this.changeScreenOrientation();
-
     }
+
+
 
     //MODALS_VISIBLE
     setEfficiencyVisible(visible) {
@@ -116,256 +162,246 @@ export default class SelectBundle extends React.Component {
         );
     }
 
-//SCREEEN ACTIONS
+    async selectOperation() {
+        let bundle = this.state.bundle;
+        const tickets = bundle.operations.filter(o => o.id == this.state.operation)[0];
+        const ticket = tickets ? tickets.ticket : null;
 
-    async _selectBundle(bundle) {
-        await this.setState({
-            ticket: null
+        bundle.operations = this.state.bundle.operations.map(o => ({
+            ...o,
+            isSelected: o.id == this.state.operation
+        }));
+        this.setState({
+            bundle,
+            ticket
         });
+    }
+
+
+    async sendTickets() {
+        console.log("Sync tickets");
+        const tickets_pending = JSON.parse(await AsyncStorage.getItem('tickets_pending'));
+        console.log('Pending', tickets_pending);
+        const tickets_finished = tickets_pending.filter(t => t.end_time);
+        console.log('Finished', tickets_finished);
+        if(tickets_finished.length > 0) {
+            fetch("http://192.168.50.142:3000/scans", {
+                method: 'POST', // *GET, POST, PUT, DELETE, etc.
+                mode: 'cors', // no-cors, *cors, same-origin
+                cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+                credentials: 'same-origin', // include, *same-origin, omit
+                headers: {
+                  'Content-Type': 'application/json'
+                 
+                },
+                redirect: 'follow', 
+                referrer: 'no-referrer', 
+                body: JSON.stringify(tickets_finished) 
+              }).then((r)=>{
+    
+                this.setState({
+                    syncBG: {
+                        ...this.state.syncBG,
+                        lastDate: new Date(),
+                        isSyncTickets: true
+                    }
+                });
+              })
+              .catch(e => alert("Error connecting to the server."))
+        }    
+    }
+    async updateBundle() {
+        if (this.state.syncBG.isSyncBundles) {
+            console.log("Syncing bundles");
+        } else {
+            await this.setState({
+                syncBG: {
+                    isSyncBundles: true
+                }
+            });
+            console.log("Sync bundles");
+            fetch(`${global.hostname}/complete/bundle`)
+                .then((response) => response.json())
+                .then(async (responseJson) => {
+                    await AsyncStorage.setItem('complete_bundles', JSON.stringify(responseJson));
+
+                    this.setState({
+                        syncBG: {
+                            ...this.state.syncBG,
+                            lastDate: new Date(),
+                            isSyncBundles: false
+                        }
+                    });
+                    this.updateValues(true);
+
+                })
+                .catch(async (error) => {
+                    console.error(error);
+                });
+        }
+    }
+    async syncServer() {
+        this.sendTickets();
+        this.updateBundle();
+        console.log("Sync sent")
+    }
+
+
+    //SCREEEN ACTIONS
+    async _selectBundle(bundle) {
+        console.log(new Date() + " - Bundle Selected")
         //Update selected bundle
         const complete_bundles = this.state.complete_bundles.map(b => ({
             ...b,
-            isSelected: b.id == bundle.id
+            isSelected: b.id == bundle.id,
+            operations: b.operations.map(o => ({
+                ...o,
+                isSelected: o.id == this.state.operation
+            }))
         }));
-
-        console.log(bundle);
+        console.log(new Date() + " - Bundle Filtered")
         await this.setState({
             bundle,
             complete_bundles
         });
+        this.selectOperation();
     }
 
+
     async _selectOperation(operation) {
-
-        //Update selected operation
-        const operations = this.state.operations.map(o => ({
-            ...o,
-            isSelected: o.operation == operation.operation
-        }));
-
+        //Not allow to start ticket with 
+        if (operation.isFinished) {
+            alert("Ticket already done");
+            return;
+        }
         await this.setState({
-            operation,
-            operations
+            operation: operation.id
         });
-
+        this.selectOperation();
     }
 
     _onPress_Start() {
+        console.log("Start");
         this.setTimerVisible(true);
         this.startCountDown();
         const tickets_pending = this.state.tickets_pending;
         tickets_pending.push({
+            empnum: this.state.employee.empnum,
             ticket: this.state.ticket.id,
-            start_time: new Date().getTime()
+            start_time: new Date().toISOString()
         });
         this.setState({
             tickets_pending
         })
     }
 
-    _onPress_Finish() {
-        clearInterval(this.intervalCountdown);
+    async _onPress_Finish() {
+        console.log("Finish")
         this.setTimerVisible(false);
-        const tickets_pending = this.state.tickets_pending;
-        const ticket = tickets_pending.filter(t => t.id == this.state.ticket.id);
+        clearInterval(this.intervalCountdown);
+        const tickets_pending = this.state.tickets_pending.filter(t => t.ticket != this.state.ticket.id);
+        const ticket = this.state.tickets_pending.filter(t => t.ticket == this.state.ticket.id)[0];
+
         tickets_pending.push({
             ...ticket,
-            start_time: new Date().getTime()
+            end_time: new Date().toISOString()
         });
+        const employee = {
+            ...this.state.employee,
+            earn_today: this.state.employee.earn_today + this.state.ticket.earn,
+            earn_week: this.state.employee.earn_week + this.state.ticket.earn,
+        };
 
-        this.setState({
-            tickets_pending
-        });
-
-        console.log(tickets_pending);
-
-    }
-
-
-    async old_selectBundle(bundle) {
-        await this.setState({
-            ticket: null
-        });
-        //Update is Finished att in operations
-        const tk = this.state.tickets;
-        const bundle_ops = tk
-            .filter(t => t.bundle == bundle.bundle)
-            .map(t => (
-                {
-                    operation: t.operation,
-                    isFinished: t.empnum > 0
-                }));
-        const operations = this.state.operations
-            .map(o => {
-                const op_bnd = bundle_ops.filter(b => b.operation == o.operation);
-                let isFinished = null;
-                if (op_bnd.length > 0) {
-                    isFinished = op_bnd[0].isFinished;
-                }
-                return (
-                    {
-                        ...o,
-                        isFinished
-                    }
-                )
-            })
-            //ORDER true, false, null
-            .sort(function (a, b) { return b.isFinished === null ? -1 : b.isFinished - a.isFinished });
-
-        //Update selected bundle
-        const bundles = this.state.bundles.map(b => ({
-            ...b,
-            isSelected: b.bundle == bundle.bundle
-        }));
-        await this.setState({
-            bundle,
-            bundles,
-            operations
-        });
-        this.findTicket();
-    }
-
-    async old_selectOperation(operation) {
-
-        //Update selected operation
-        const operations = this.state.operations.map(o => ({
-            ...o,
-            isSelected: o.operation == operation.operation
-        }));
 
         await this.setState({
-            operation,
-            operations
+            tickets_pending,
+            employee
         });
 
-        this.findTicket();
+        await AsyncStorage.setItem('employee', JSON.stringify(employee));
+        await AsyncStorage.setItem('tickets_pending', JSON.stringify(tickets_pending));
+        this.syncServer();
     }
 
-    old_findTicket() {
-        const bundle_obj = this.state.bundle;
-        const operation_obj = this.state.operation;
-
-        if (bundle_obj && operation_obj) {
-
-            const bundle = bundle_obj.bundle;
-            const operation = operation_obj.operation;
-            if (bundle && operation) {
-                console.log("SET TICKET:" + bundle + ' - ' + operation);
-                this.setState({
-                    ticket: this.state.tickets.filter(t => t.bundle == bundle && t.operation == operation)[0]
-                });
-            }
-        }
+    async _onPress_Logout() {
+        Actions.loginScreen();
     }
 
-    old_onPress_Start() {
-        fetch(`${global.hostname}/start_ticket/${this.state.employee.empnum}/${this.state.ticket.ticket}`)
-            .then((response) => response.json())
-            .then((responseJson) => {
-                this.setTimerVisible(true);
-                this.startCountDown();
-            })
-            .catch((error) => {
-                console.error(error);
-            });
-    }
-
-    old_onPress_Finish() {
-        clearInterval(this.intervalCountdown);
-
-        //STORE DATABASE LOGIC
-        fetch(`${global.hostname}/finish_ticket/${this.state.employee.empnum}/${this.state.ticket.ticket}`)
-            .then((resIndifferent) => {
-                fetch(`${global.hostname}/efficiency_ticket/${this.state.employee.empnum}/${this.state.ticket.ticket}`)
-                    .then((response) => response.json())
-                    .then((responseJson) => {
-                        this.setState({
-                            ticket: {
-                                ...this.state.ticket,
-                                endDate: (new Date()).getTime()
-                            },
-                            employee: {
-                                ...this.state.employee,
-                                current_hr_today: ((new Date().getTime() - new Date(this.state.employee.start_timestamp).getTime()) / 3600000)
-                            }
-                        });
-                        let efficiency = responseJson;
-                        efficiency["operation"] = this.state.ticket.operation;
-                        efficiency["bundle"] = this.state.ticket.bundle;
-
-                        console.log("Time Now:" + new Date());
-                        console.log("Hr Start:" + this.state.employee.start_timestamp);
-                        console.log("Rate: " + this.state.employee.rate);
-                        console.log("Hrs: " + this.state.employee.current_hr_today);
-
-                        this.setState({
-                            efficiency,
-                            employee: {
-                                ...this.state.employee,
-                                earn_today: this.state.employee.earn_today + efficiency.earning,
-                                salary_today: this.state.employee.rate * this.state.employee.current_hr_today,
-                                earn_week: this.state.employee.earn_week + efficiency.earning,
-                                salary_week: this.state.employee.salary_week + this.state.employee.rate * this.state.employee.current_hr_today,
-                            }
-                        });
-
-                        let efficiency_result = {
-                            ticket: {
-                                day: "$" + parseFloat(this.state.employee.earn_today).toFixed(2),
-                                week: "$" + parseFloat(this.state.employee.earn_week).toFixed(2)
-                            },
-                            hourly: {
-                                day: "$" + parseFloat(this.state.employee.salary_today).toFixed(2),
-                                week: "$" + parseFloat(this.state.employee.salary_week).toFixed(2)
-                            },
-                            efficiency: {
-                                day: parseFloat((this.state.employee.earn_today / this.state.employee.salary_today) * 100).toFixed(2) + "%",
-                                week: parseFloat((this.state.employee.earn_week / this.state.employee.salary_week) * 100).toFixed(2) + "%"
-                            },
-                            hr_avg: {
-                                day: "$" + parseFloat(this.state.employee.earn_today / this.state.employee.current_hr_today).toFixed(2),
-                                week: "$" + parseFloat(this.state.employee.earn_week / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)
-                            }
-                        }
-
-                        //TABLE EFFICIENCY
-                        this.setState({
-                            tbl_efficiency: {
-                                tableHead: ['', 'Day', 'Week'],
-                                tableTitle: ['Ticket', 'Hourly', 'Efficiency', 'Hr/Avg'],
-                                tableData: [
-                                    [efficiency_result.ticket.day, efficiency_result.ticket.week],
-                                    [efficiency_result.hourly.day, efficiency_result.hourly.week],
-                                    [efficiency_result.efficiency.day, efficiency_result.efficiency.week],
-                                    [efficiency_result.hr_avg.day, efficiency_result.hr_avg.week]
-                                ]
-                            }
-                        });
-
-                        this.setTimerVisible(false);
-                        this.setEfficiencyVisible(true);
-                    });
-            })
-            .catch((error) => {
-                console.error(error);
-            });
-    }
 
 
     render() {
+
+        // renderTime++
+        // console.log("RenderTime: " + renderTime);
+
         if (this.state.isLoading || !this.state.complete_bundles.length > 0) {
             return (
                 <LoadScreen />
             )
         }
         return (
-            <View style={{ ...styles.container, backgroundColor: '#000' }}>
+            <View style={styles.container}>
 
-                <View style={styles.containerEarn}>
-                    <Text style={{ ...styles.titleText, color: 'white' }}>Earnings: {"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
-                </View>
                 <View style={styles.containerContent}>
+
+                    <View style={styles.containerHeader}>
+                        <Text style={{ ...styles.titleText, color: 'white' }}></Text>
+                    </View>
+
                     <View style={styles.containerItem}>
+                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center' }}>{this.state.currentDate.toLocaleString()}</Text>
+                        <TouchableOpacity style={styles.buttonLogout}
+                            onPress={this._onPress_Logout}
+                            activeOpacity={1}>
+                            <Ionicons name="md-arrow-dropleft" style={{ color: '#C9C9C9' }} size={26}></Ionicons>
+                            <Text style={{ ...styles.textEarning, color: '#C9C9C9', width: null, height:'100%', textAlign: 'center', textAlignVertical: "center" }}>Logout</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.textEarning}>Start: {this.state.employee.start_time}</Text>
+                        <Text style={styles.textEarning}>Finish: {this.state.employee.finish_time}</Text>
+                        <Text style={styles.textEarning}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
+                    </View>
+                    <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: ''}}>
+                        <Text style={styles.textEarning}>Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
+                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.13), backgroundColor: '#292929', color: '#292929' }} >
+                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929'  }}>-</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                            {(this.state.employee.earn_today / this.state.employee.salary_today) > 0.95 ?
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems:'center', color: '#90Fc55' }}>Excelent!</Text>
+                                :
+                                (this.state.employee.earn_today / this.state.employee.salary_today) > 0.75 ?
+                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems:'center', color: '#90cc55' }}>Very Good!</Text>
+                                    :
+                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems:'center', color: '#F90f0f' }}>Warning!</Text>
+                            }
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                           
+                        </View>
+
+                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.13) }} >
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Ticket</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hourly</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Efficiency</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hr/Avg</Text>
+                        </View>
+                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Daily</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_today).toFixed(2)}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat((this.state.employee.earn_today / this.state.employee.salary_today) * 100).toFixed(2) + "%"}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.earn_today / this.state.employee.current_hr_today).toFixed(2)}</Text>
+                        </View>
+                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Weekly</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_week + this.state.employee.earn_today).toFixed(2)}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_week + this.state.employee.salary_today).toFixed(2)}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat((this.state.employee.earn_week / this.state.employee.salary_week) * 100).toFixed(2) + "%"}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.earn_week / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
+                        </View>
+                    </View>
+
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5) }}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Bundle #</Text>
                         <ScrollView style={styles.contentScroll}>
                             {this.state.complete_bundles.map(b => (
@@ -380,9 +416,9 @@ export default class SelectBundle extends React.Component {
                         </ScrollView>
                     </View>
 
-                    <View style={styles.containerItem}>
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5) }}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Operation #</Text>
-                        <ScrollView style={styles.contentScroll}>   
+                        <ScrollView style={styles.contentScroll}>
                             {this.state.bundle ? this.state.bundle.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
                                 <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
                                     <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#90cc55' : '#696969' }}>
@@ -404,112 +440,48 @@ export default class SelectBundle extends React.Component {
                         </ScrollView>
                     </View>
 
-                    <View style={styles.containerItem}>
-
-                        <TouchableOpacity style={{ ...styles.buttonStart, backgroundColor: this.state.ticket ? '#90cc55' : '#696969' }} onPress={this.state.ticket ? this._onPress_Start : null} activeOpacity={1}>
-                            <Text style={styles.textScan} >START</Text>
-                        </TouchableOpacity>
-
-                        <Text style={{ color: '#FFF', marginTop: 20 }}>
-                            {this.state.ticket ?
-                                "Ticket: " + this.state.ticket.id + "\n" +
-                                "Quantity: " + this.state.ticket.quantity + "\n" +
-                                "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format() + "\n" +
-                                "Color: " + this.state.ticket.color + "\n" +
-                                "Style: " + this.state.ticket.style + "\n"
-
-
-                                :
-                                this.state.ticket === 'undefined' ? 'Ticket not found' : 'Select bundle and operation'
-                            }
-                        </Text>
-                    </View>
-                </View>
-
-                {this.state.efficiencyVisible ?
-                    <Modal
-                        animationType="slide"
-                        transparent={false}
-                        visible={this.state.efficiencyVisible}
-                        onRequestClose={() => {
-                            Alert.alert('Modal has been closed.');
-                        }}>
-                        <View style={{ ...styles.container, justifyContent: 'center', backgroundColor: '#c0c1b0' }}>
-                            <View style={styles.containerItem}>
-                                <View style={styles.containerItem}>
-
-                                    {this.state.efficiency.efficiency > 0.95 ?
-                                        <Text style={styles.titleTextTimer}>Excelent!</Text>
-                                        :
-                                        this.state.efficiency.efficiency > 0.75 ?
-                                            <Text style={styles.titleTextTimer}>Very Good!</Text>
-                                            :
-                                            <Text style={styles.titleTextTimer}>Warning!</Text>
-                                    }
-
-                                    <View style={styles.contentResults}>
-                                        <View style={{ width: '40%' }}>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableTitle[0]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableTitle[1]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableTitle[2]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableTitle[3]}</Text>
-                                        </View>
-                                        <View style={{ width: '30%' }}>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[0][0]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[1][0]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[2][0]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[3][0]}</Text>
-                                        </View>
-                                        <View style={{ width: '30%' }}>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[0][1]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[1][1]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[2][1]}</Text>
-                                            <Text style={styles.titleText}>{this.state.tbl_efficiency.tableData[3][1]}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-                                <TouchableHighlight
-                                    onPress={() => {
-                                        this.setEfficiencyVisible(!this.state.efficiencyVisible);
-                                    }}
-                                    style={styles.buttonModalDone}>
-                                    <Text style={styles.textFinishButton}>Done</Text>
-                                </TouchableHighlight>
-                            </View>
-                        </View>
-                    </Modal>
-                    : null}
-
-                {this.state.timerVisible ?
-                    <Modal
-                        animationType="slide"
-                        transparent={false}
-                        visible={this.state.timerVisible}
-                        onRequestClose={() => {
-                            Alert.alert('Modal has been closed.');
-                        }}>
-                        <View style={{ ...styles.container, justifyContent: 'center' }}>
-                            <Text style={styles.titleTextTimer}> Time </Text>
-                            <Text style={styles.contentTextTimer}> {moment.duration(this.state.timeCountDown, "seconds").format()} </Text>
-
-                            <View style={styles.containerItem}>
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding:3 }}>
+                        {this.state.timerVisible ?
+                            <View style={{ width: '100%', justifyContent: 'center', alignContent: 'center' }}>
                                 <TouchableOpacity style={styles.buttonFinish}
                                     onPress={this._onPress_Finish}
                                     activeOpacity={1}>
                                     <Text style={styles.textFinishButton} >FINISH</Text>
                                 </TouchableOpacity>
+                                <Text style={styles.contentTextTimer}> {moment.duration(this.state.timeCountDown, "seconds").format()} </Text>
                             </View>
-                        </View>
-                    </Modal>
-                    : null}
+                            :
+                            <View style={{ width: '100%' }}>
+                                <TouchableOpacity style={{ ...styles.buttonStart, backgroundColor: this.state.ticket && this.state.ticket.time ? '#90cc55' : '#696969' }} onPress={this.state.ticket && this.state.ticket.time ? this._onPress_Start : null} activeOpacity={1}>
+                                    <Text style={styles.textScan} >START</Text>
+                                </TouchableOpacity>
+                                <Text style={{ color: '#FFF', marginTop: 10 }}>
+                                    {this.state.ticket ?
+                                        "Ticket: " + this.state.ticket.id + "\n" +
+                                        "Earn: " + "$" + parseFloat(this.state.ticket.earn).toFixed(2) + "\n" +
+                                        "Quantity: " + this.state.ticket.quantity + "\n" +
+                                        "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format() + "\n" +
+                                        "Color: " + this.state.ticket.color + "\n" +
+                                        "Style: " + this.state.ticket.style + "\n"
+                                        :
+                                        this.state.ticket === 'undefined' ? 'Ticket not found' : 'Select bundle and operation'
+                                    }
+                                </Text>
+                            </View>
+                        }
+                    </View>
+                </View>
+
             </View>
         );
     }
 }
 
 
-const DEVICE_WIDTH = Math.round(Dimensions.get('window').width);
-const DEVICE_HEIGHT = Math.round(Dimensions.get('window').height);
+const isLandscape = Dimensions.get('window').height < Dimensions.get('window').width;
+const DEVICE_WIDTH = Math.round(isLandscape ? Dimensions.get('window').width : Dimensions.get('window').height) - 5;
+const DEVICE_HEIGHT = Math.round(isLandscape ? Dimensions.get('window').height : Dimensions.get('window').width) - 5;
+
 
 console.log('Width: ', DEVICE_WIDTH);
 console.log('Height: ', DEVICE_HEIGHT);
@@ -517,9 +489,10 @@ console.log('Height: ', DEVICE_HEIGHT);
 
 const styles = StyleSheet.create({
     container: {
+        paddingTop: 3,
         flex: 1,
         alignItems: "center",
-        backgroundColor: '#fff',
+        backgroundColor: '#292929'
     },
     containerContent: {
         flexWrap: 'wrap',
@@ -527,19 +500,25 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: 'center'
     },
-    containerEarn: {
+    containerHeader: {
         alignItems: "center",
         justifyContent: 'center',
-        width: Math.round(DEVICE_HEIGHT),
-        height: 50
+        width: '100%',
+        height: Math.round(DEVICE_HEIGHT * 0.1)
+    },
+    containerSide: {
+        backgroundColor: '#FFF',
+        width: Math.round(DEVICE_WIDTH * 0.03),
+        height: '90%'
     },
     containerItem: {
+        flexWrap: 'wrap',
+        flexDirection: 'row',
         alignItems: "center",
         justifyContent: 'center',
-        backgroundColor: '#0F0F0F',
-        marginVertical: 2,
+        backgroundColor: '#1F1F1F',
         width: Math.round(DEVICE_WIDTH * 0.3),
-        height: Math.round(DEVICE_HEIGHT * 0.9)
+        height: Math.round(DEVICE_HEIGHT * 0.4)
     },
     contentResults: {
         flexDirection: 'row',
@@ -551,7 +530,7 @@ const styles = StyleSheet.create({
     contentScroll: {
         marginLeft: 10,
         marginRight: 10,
-
+        height: '80%'
     },
     header: {
         height: 50,
@@ -565,8 +544,11 @@ const styles = StyleSheet.create({
         height: 300
     },
     titleText: {
+        width: '100%',
+        textAlign: 'center',
         color: 'black',
         fontWeight: 'bold',
+        height: '20%',
         fontSize: 20,
         marginBottom: 10
     },
@@ -581,6 +563,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: '#90cc55',
         fontSize: 30,
+        marginTop: 5,
         padding: 10,
         color: 'white'
     },
@@ -588,30 +571,44 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#EE5555',
-        fontSize: 40,
-        padding: 20,
-        color: 'white',
-        height: 100,
-        width: 300
+        fontSize: 30,
+        padding: 10,
+        width: '100%',
+        color: 'white'
+    },
+    buttonLogout: {
+       
+        flexWrap: 'wrap',
+        flexDirection: 'row',
+        alignContent:'center',
+        justifyContent:'center',
+        width: '100%'
     },
     buttonModalDone: {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#110011',
         bottom: 10,
-
         padding: 20,
-
         height: 100,
         width: 300
     },
     textFinishButton: {
         fontSize: 40,
+        textAlign: 'center',
+        width: '100%',
         color: 'white',
     },
     textScan: {
         fontSize: 20,
         color: 'white'
+    },
+    textEarning: {
+        color: '#FFF',
+        alignItems: 'flex-start',
+        width: '100%',
+        paddingLeft: 5,
+        padding: 2
     },
     imageBarCode: {
         height: 100,
@@ -620,12 +617,14 @@ const styles = StyleSheet.create({
     titleTextTimer: {
         color: 'black',
         fontWeight: 'bold',
-        fontSize: 50,
+        fontSize: 30,
         marginBottom: 10
     },
     contentTextTimer: {
-        color: 'black',
+        color: '#FFF',
         fontWeight: 'bold',
+        alignItems:'center',
+        justifyContent:'center',
         fontSize: 50,
         marginBottom: 10
     },

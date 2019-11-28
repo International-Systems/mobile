@@ -35,7 +35,7 @@ export default class LoginScreenNum extends Component {
         // this.updateBundle();
         // this.updateTicket();
         // this.updateOperation();
-
+        
         this.updateCompleteBundle();
         this.updateEmployee();
     }
@@ -43,14 +43,17 @@ export default class LoginScreenNum extends Component {
 
 
     async updateCompleteBundle() {
+    
         fetch(`${global.hostname}/complete/bundle`)
             .then((response) => response.json())
             .then(async (responseJson) => {
-                
+                console.log("Bundles " + responseJson.length);
                 await AsyncStorage.setItem('complete_bundles', JSON.stringify(responseJson));
+                console.log("Bundles stored")
                 await this.setState({
                     isLoadingBundle: false
                 });
+                console.log("Bundles OK")
                 this.redirect();
             })
             .catch(async (error) => {
@@ -64,6 +67,7 @@ export default class LoginScreenNum extends Component {
 
 
     async updateBundle() {
+        
         fetch(`${global.hostname}/bundle`)
             .then((response) => response.json())
             .then(async (responseJson) => {
@@ -123,9 +127,11 @@ export default class LoginScreenNum extends Component {
     }
 
     async updateEmployee() {
+        console.log("employee Loading")
         fetch(`${global.hostname}/employee/${this.state.employee.empnum}`)
             .then((response) => response.json())
             .then(async (responseJson) => {
+                console.log("employee Loaded")
                 await AsyncStorage.setItem('employee', JSON.stringify(responseJson));
                 await this.setState({
                     isLoadingEmployee: false

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-
+import { ScreenOrientation } from 'expo';
 
 export default class LoginScreenNum extends Component {
     constructor(props) {
@@ -34,13 +34,21 @@ export default class LoginScreenNum extends Component {
             },
             isLoading: false
         }
+        this.changeScreenOrientation();
+
+
         this._keyPressed = this._keyPressed.bind(this);
         this._doLogin = this._doLogin.bind(this);
     }
 
-    componentDidMount(){
+    componentDidMount() {
         this.getStorage();
         this.testConnection();
+
+    }
+
+    async changeScreenOrientation() {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
     }
 
     async getStorage() {
@@ -58,7 +66,7 @@ export default class LoginScreenNum extends Component {
             }
         });
     }
-    async setStorage(){
+    async setStorage() {
         await AsyncStorage.setItem('employee', JSON.stringify(this.state.employee));
         await AsyncStorage.setItem('host', JSON.stringify(this.state.host));
     }
@@ -73,17 +81,17 @@ export default class LoginScreenNum extends Component {
             )
                 .then((r) => {
                     this.setState({
-                        isLoading: false ,
+                        isLoading: false,
                         host: {
                             ...this.state.host,
                             isOnline: true
                         }
                     });
-                    
-                }) 
+
+                })
                 .catch((error) => {
                     this.setState({
-                        isLoading: false ,
+                        isLoading: false,
                         host: {
                             ...this.state.host,
                             isOnline: false
@@ -93,7 +101,7 @@ export default class LoginScreenNum extends Component {
                 });
         } catch (e) {
             this.setState({
-                isLoading: false ,
+                isLoading: false,
                 host: {
                     ...this.state.host,
                     isOnline: false
@@ -119,27 +127,26 @@ export default class LoginScreenNum extends Component {
     }
 
     _doLogin() {
-        console.log("Doing login")
         this.setState({ isLoading: true });
         fetch(`${global.hostname}/employee/${this.state.employee.empnum}`)
-        .then((response) => response.json())
-        .then(async (employee) => {
-            console.log("Employee received");
+            .then((response) => response.json())
+            .then(async (employee) => {
+                console.log("Employee received");
 
-            this.setState({ isLoading: false });
-            if(employee.empnum){
-                await AsyncStorage.setItem('employee', JSON.stringify(employee));
-                Actions.loadFileScreen({ employee: this.state.employee });
-            }else{
-                alert("User doesnt exist")
-            }
-        })
-        .catch((error) => {
-            console.log(error);
-            this.setState({ isLoading: false });
-           alert(JSON.stringify(error));
-        });
-        
+                this.setState({ isLoading: false });
+                if (employee.empnum) {
+                    await AsyncStorage.setItem('employee', JSON.stringify(employee));
+                    Actions.loadFileScreen({ employee: this.state.employee });
+                } else {
+                    alert("Invalid user")
+                }
+            })
+            .catch((error) => {
+                console.log(error);
+                this.setState({ isLoading: false });
+                alert("Error: Unable to connect to the server. Try again later.");
+            });
+
     }
 
     render() {
@@ -183,14 +190,14 @@ export default class LoginScreenNum extends Component {
                         <Text style={styles.textKeyboard_Key}>9</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.containerKeyboard_Key} activeOpacity={0.2} onPress={() => this._keyPressed("del")}>
-                        <Text style={styles.textKeyboard_Key_2}>Del</Text>
+                        <Ionicons name="md-backspace" size={26}></Ionicons>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.containerKeyboard_Key} activeOpacity={0.2} onPress={() => this._keyPressed(0)}>
                         <Text style={styles.textKeyboard_Key}>0</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.containerKeyboard_Key} activeOpacity={0.2} onPress={this._doLogin}>
-                        <Ionicons name="md-key"  size={26}></Ionicons>
+                        <Ionicons name="md-key" size={26}></Ionicons>
                     </TouchableOpacity>
                 </View>
                 <View style={styles.containerStatus}>
@@ -201,8 +208,9 @@ export default class LoginScreenNum extends Component {
     }
 }
 
-const DEVICE_WIDTH = Math.round(Dimensions.get('window').width);
-const DEVICE_HEIGHT = Math.round(Dimensions.get('window').height);
+const isLandscape = Dimensions.get('window').height < Dimensions.get('window').width;
+const DEVICE_WIDTH = Math.round(isLandscape ? Dimensions.get('window').width : Dimensions.get('window').height);
+const DEVICE_HEIGHT = Math.round(isLandscape ? Dimensions.get('window').height : Dimensions.get('window').width);
 
 
 const styles = StyleSheet.create({
@@ -221,10 +229,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(100,100,0,0.6)'
     },
     containerNumber: {
-        height: 200,
+        height: '40%',
         padding: 20,
         backgroundColor: '#9F9F9F',
-        alignItems:'center',
+        alignItems: 'center',
         justifyContent: 'center'
     },
     textNumber: {
@@ -234,7 +242,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexWrap: 'wrap',
         flexDirection: 'row',
-        justifyContent:'center',
+        justifyContent: 'center',
         width: '100%',
         height: 400,
         backgroundColor: '#f5d000',
