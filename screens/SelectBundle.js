@@ -71,13 +71,38 @@ export default class SelectBundle extends React.Component {
         this._onPress_Finish = this._onPress_Finish.bind(this);
     }
 
+    componentDidMount() {
+        this.setState({
+            timerUpdateDate: setInterval(() => this.updateCurrentTime(), 1000)
+        });
+
+        this.updateValues(false);
+        this.changeScreenOrientation();
+    }
+
+
+
+    getOperations(bundle){
+        fetch(`${global.hostname}/particle/bundle/${bundle.id}`)
+        .then((response) => response.json())
+        .then(async (operations) => {
+            const complete_bundles = this.state.complete_bundles.map(b => {
+                b.id == bundle.id ? {...b, operations} : b;
+            });
+            await AsyncStorage.setItem('complete_bundles', JSON.stringify(complete_bundles));
+            this.updateValues(true);
+        })
+        .catch(async (error) => {
+            console.error(error);
+        });
+    }
+
     async updateValues(isBackground) {
         if (!isBackground) {
             await this.setState({
                 isLoading: true
             });
         }
-
         const employee = JSON.parse(await AsyncStorage.getItem("employee"));
         let complete_bundles = JSON.parse(await AsyncStorage.getItem("complete_bundles"));
         if (this.state.bundle && isBackground) {
@@ -103,10 +128,9 @@ export default class SelectBundle extends React.Component {
         const currentDate = new Date();
         const startTime = new Date(this.state.employee.start_timestamp);
         const diffTime = currentDate.getTimezoneOffset();
-        let startTimeDateAdjust = startTime.getTime() - (diffTime * 60 * 1000);
+        let startTimeDateAdjust = startTime.getTime() + (diffTime * 60 * 1000);
         startTimeDateAdjust = startTimeDateAdjust - (currentDate < startTimeDateAdjust ? 86400000 : 0);
         const startDateAdjust = new Date(startTimeDateAdjust);
-
         const current_hr_today = (currentDate.getTime() - startTimeDateAdjust) / 3600000;
 
         this.setState({
@@ -125,17 +149,6 @@ export default class SelectBundle extends React.Component {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
     }
 
-    componentDidMount() {
-        this.setState({
-            timerUpdateDate: setInterval(() => this.updateCurrentTime(), 1000)
-        });
-
-        this.updateValues(false);
-        this.changeScreenOrientation();
-
-        setInterval(() => this.sendTickets(), 20000);
-        setInterval(() => this.syncServer(), 600000);
-    }
 
     //MODALS_VISIBLE
     setEfficiencyVisible(visible) {
@@ -161,11 +174,12 @@ export default class SelectBundle extends React.Component {
     }
 
     async syncServer() {
+        console.log(new Date() +  ": 1 Sync Server" );
         this.sendTickets();
-        this.updateBundle();
+        
     }
+
     async sendTickets() {
-       
         const tickets_pending = JSON.parse(await AsyncStorage.getItem('tickets_pending'));
     
         const tickets_finished = tickets_pending.filter(t => t.end_time);
@@ -194,9 +208,10 @@ export default class SelectBundle extends React.Component {
                     }
                 });
             })
-                .catch(e => alert("Error connecting to the server."))
+            .catch(e => alert("Error connecting to the server."))
         }
     }
+
     async updateBundle() {
         if (this.state.syncBG.isSyncBundles) {
            
@@ -206,7 +221,6 @@ export default class SelectBundle extends React.Component {
                     isSyncBundles: true
                 }
             });
-           
             fetch(`${global.hostname}/complete/bundle`)
                 .then((response) => response.json())
                 .then(async (responseJson) => {
@@ -248,7 +262,10 @@ export default class SelectBundle extends React.Component {
 
     //SCREEEN ACTIONS
     async _selectBundle(bundle) {
-      
+        if(bundle.operations.length == 0){
+            getOperations(bundle);
+            return;
+        }
         //Update selected bundle
         const complete_bundles = this.state.complete_bundles.map(b => ({
             ...b,
@@ -262,6 +279,8 @@ export default class SelectBundle extends React.Component {
             bundle,
             complete_bundles
         });
+
+       
         this.selectOperation();
     }
 
@@ -279,6 +298,10 @@ export default class SelectBundle extends React.Component {
     }
 
     _onPress_Start() {
+        if(this.state.ticket === null){
+            return;
+        }
+
         this.setTimerVisible(true);
         this.startCountDown();
         const tickets_pending = this.state.tickets_pending;
@@ -293,37 +316,55 @@ export default class SelectBundle extends React.Component {
     }
 
     async onPress_Finish(){       
-        const tickets_pending = this.state.tickets_pending.filter(t => t.ticket != this.state.ticket.id);
-        const ticket = this.state.tickets_pending.filter(t => t.ticket == this.state.ticket.id)[0];
+        // console.log(new Date() +  ": Start updateTicket" );
+        if(this.state.ticket === null){
+            return;
+        }
+        const ticketID = this.state.ticket.id;
 
+        this.setState({
+            ticket: null
+        })
+        
+        const tickets_pending = this.state.tickets_pending.filter(t => t.ticket != ticketID);
+        // console.log(new Date() +  ": 1 updateTicket" );
+        const ticket = this.state.tickets_pending.filter(t => t.ticket == ticketID)[0];
         tickets_pending.push({
             ...ticket,
             end_time: new Date().toISOString()
         });
+        // console.log(new Date() +  ": 3 updateTicket" );
         const employee = {
             ...this.state.employee,
             earn_today: this.state.employee.earn_today + this.state.ticket.earn,
             earn_week: this.state.employee.earn_week + this.state.ticket.earn,
         };
+        // console.log(new Date() +  ": 4 updateTicket" );
         await this.setState({
             tickets_pending,
             employee
         });
+        // console.log(new Date() +  ": 5 updateTicket" );
         await AsyncStorage.setItem('employee', JSON.stringify(employee));
+        // console.log(new Date() +  ": 6 updateTicket" );
         await AsyncStorage.setItem('tickets_pending', JSON.stringify(tickets_pending));
+        // console.log(new Date() +  ": 7 updateTicket" );
         this.syncServer();
     }
 
     _onPress_Finish() {
+        // console.log(new Date() +  ": Start finishTicket" );
         this.setTimerVisible(false);
+        // console.log(new Date() +  ": 1 finishTicket" );
         clearInterval(this.intervalCountdown);
+        // console.log(new Date() +  ": 2 finishTicket" );
        this.onPress_Finish();
+    //    console.log(new Date() +  ": 3 finishTicket" );
     }
 
     async _onPress_Logout() {
         Actions.loginScreen();
     }
-
 
 
     render() {
