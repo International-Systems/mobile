@@ -35,6 +35,7 @@ export default class SelectBundle extends React.Component {
         super(props);
         this.state = {
             isLoading: true,
+            isSyncOperations: false,
 
             syncBG: {
                 lastDate: new Date(),
@@ -54,6 +55,12 @@ export default class SelectBundle extends React.Component {
             efficiency: {},
             employee: props.employee,
 
+            chuckSize: 20,
+            currentChuck: 0,
+            startListBundles: 0,
+            endListBundles: 20,
+
+
             complete_bundles: [],
             tickets_pending: [],
 
@@ -69,6 +76,7 @@ export default class SelectBundle extends React.Component {
         this._selectBundle = this._selectBundle.bind(this);
         this._onPress_Start = this._onPress_Start.bind(this);
         this._onPress_Finish = this._onPress_Finish.bind(this);
+        this._sliceBundle = this._sliceBundle.bind(this);
     }
 
     componentDidMount() {
@@ -82,19 +90,26 @@ export default class SelectBundle extends React.Component {
 
 
 
-    getOperations(bundle){
-        fetch(`${global.hostname}/particle/bundle/${bundle.id}`)
-        .then((response) => response.json())
-        .then(async (operations) => {
-            const complete_bundles = this.state.complete_bundles.map(b => {
-                b.id == bundle.id ? {...b, operations} : b;
-            });
-            await AsyncStorage.setItem('complete_bundles', JSON.stringify(complete_bundles));
-            this.updateValues(true);
-        })
-        .catch(async (error) => {
-            console.error(error);
+    getOperations(bundle) {
+        this.setState({
+            isSyncOperations: true
         });
+        fetch(`${global.hostname}/particle/bundle/${bundle.id}`)
+            .then((response) => response.json())
+            .then(async (operations) => {
+                bundle = { ...bundle, operations };
+                const complete_bundles = this.state.complete_bundles.map(b => b.id == bundle.id ? bundle : b);
+                await AsyncStorage.setItem('complete_bundles', JSON.stringify(complete_bundles));
+                this.updateValues(true);
+                this._selectBundle(bundle);
+
+                this.setState({
+                    isSyncOperations: false
+                });
+            })
+            .catch(async (error) => {
+                console.error(error);
+            });
     }
 
     async updateValues(isBackground) {
@@ -174,16 +189,16 @@ export default class SelectBundle extends React.Component {
     }
 
     async syncServer() {
-        console.log(new Date() +  ": 1 Sync Server" );
+        console.log(new Date() + ": 1 Sync Server");
         this.sendTickets();
-        
+
     }
 
     async sendTickets() {
         const tickets_pending = JSON.parse(await AsyncStorage.getItem('tickets_pending'));
-    
+
         const tickets_finished = tickets_pending.filter(t => t.end_time);
-       
+
         if (tickets_finished.length > 0) {
             fetch(`${global.hostname}/scans`, {
                 method: 'POST', // *GET, POST, PUT, DELETE, etc.
@@ -208,13 +223,13 @@ export default class SelectBundle extends React.Component {
                     }
                 });
             })
-            .catch(e => alert("Error connecting to the server."))
+                .catch(e => alert("Error connecting to the server."))
         }
     }
 
     async updateBundle() {
         if (this.state.syncBG.isSyncBundles) {
-           
+
         } else {
             await this.setState({
                 syncBG: {
@@ -242,6 +257,17 @@ export default class SelectBundle extends React.Component {
     }
 
 
+    isCloseToBottom = ({ layoutMeasurement, contentOffset, contentSize }) => {
+        const paddingToBottom = ((this.state.complete_bundles.length - 1) * itemScrollSize) - (itemScrollSize * this.state.currentChuck);
+        return layoutMeasurement.height + contentOffset.y >=
+            contentSize.height - paddingToBottom;
+    };
+
+    isCloseToTop = ({ contentOffset }) => {
+        const paddingToTop = (itemScrollSize * this.state.chuckSize * this.state.currentChuck) + itemScrollSize
+
+        return contentOffset.y - paddingToTop <= 0;
+    };
 
 
     async selectOperation() {
@@ -262,8 +288,8 @@ export default class SelectBundle extends React.Component {
 
     //SCREEEN ACTIONS
     async _selectBundle(bundle) {
-        if(bundle.operations.length == 0){
-            getOperations(bundle);
+        if (bundle.operations.length == 0) {
+            this.getOperations(bundle);
             return;
         }
         //Update selected bundle
@@ -280,13 +306,13 @@ export default class SelectBundle extends React.Component {
             complete_bundles
         });
 
-       
+
         this.selectOperation();
     }
 
 
     async _selectOperation(operation) {
-        //Not allow to start ticket with 
+        //Not allow to start ticket if finished
         if (operation.isFinished) {
             alert("Ticket finished");
             return;
@@ -298,7 +324,7 @@ export default class SelectBundle extends React.Component {
     }
 
     _onPress_Start() {
-        if(this.state.ticket === null){
+        if (this.state.ticket === null) {
             return;
         }
 
@@ -315,9 +341,8 @@ export default class SelectBundle extends React.Component {
         })
     }
 
-    async onPress_Finish(){       
-        // console.log(new Date() +  ": Start updateTicket" );
-        if(this.state.ticket === null){
+    async onPress_Finish() {
+        if (this.state.ticket === null) {
             return;
         }
         const ticketID = this.state.ticket.id;
@@ -325,30 +350,39 @@ export default class SelectBundle extends React.Component {
         this.setState({
             ticket: null
         })
-        
+
+        //Update queue for tickets
         const tickets_pending = this.state.tickets_pending.filter(t => t.ticket != ticketID);
-        // console.log(new Date() +  ": 1 updateTicket" );
         const ticket = this.state.tickets_pending.filter(t => t.ticket == ticketID)[0];
         tickets_pending.push({
             ...ticket,
             end_time: new Date().toISOString()
         });
-        // console.log(new Date() +  ": 3 updateTicket" );
+
         const employee = {
             ...this.state.employee,
             earn_today: this.state.employee.earn_today + this.state.ticket.earn,
             earn_week: this.state.employee.earn_week + this.state.ticket.earn,
         };
-        // console.log(new Date() +  ": 4 updateTicket" );
+
+        //mark ticket as finished
+        let bundle = this.state.bundle;
+        bundle = {
+            ...bundle,
+            operations: bundle.operations.map(o => o.id == this.state.operation ? { ...o, isFinished: true } : o)
+        }
+        const complete_bundles = this.state.complete_bundles.map(b => b.id == bundle.id ? bundle : b)
+        // console.log(complete_bundles);
         await this.setState({
+            bundle,
+            complete_bundles,
             tickets_pending,
             employee
         });
-        // console.log(new Date() +  ": 5 updateTicket" );
+
+        await AsyncStorage.setItem('complete_bundles', JSON.stringify(complete_bundles));
         await AsyncStorage.setItem('employee', JSON.stringify(employee));
-        // console.log(new Date() +  ": 6 updateTicket" );
         await AsyncStorage.setItem('tickets_pending', JSON.stringify(tickets_pending));
-        // console.log(new Date() +  ": 7 updateTicket" );
         this.syncServer();
     }
 
@@ -358,8 +392,8 @@ export default class SelectBundle extends React.Component {
         // console.log(new Date() +  ": 1 finishTicket" );
         clearInterval(this.intervalCountdown);
         // console.log(new Date() +  ": 2 finishTicket" );
-       this.onPress_Finish();
-    //    console.log(new Date() +  ": 3 finishTicket" );
+        this.onPress_Finish();
+        //    console.log(new Date() +  ": 3 finishTicket" );
     }
 
     async _onPress_Logout() {
@@ -367,11 +401,30 @@ export default class SelectBundle extends React.Component {
     }
 
 
+    async _sliceBundle(isDown) {
+
+
+        let startListBundles = this.state.endListBundles - (this.state.chuckSize * 3) - (this.state.chuckSize * isDown);
+        startListBundles = startListBundles < 0 ? 0 : startListBundles;
+
+        let endListBundles = this.state.endListBundles + (this.state.chuckSize * isDown)
+
+        //avoid slice bigger than list
+        endListBundles = endListBundles > this.state.complete_bundles.length ? this.state.complete_bundles.length : endListBundles;
+
+        console.log("----------------------------");
+        console.log("Start: " + startListBundles);
+        console.log("Finish: " + endListBundles);
+
+
+        await this.setState({
+            startListBundles,
+            endListBundles,
+            currentChuck: this.state.currentChuck + isDown
+        })
+    }
+
     render() {
-
-        // renderTime++
-        // console.log("RenderTime: " + renderTime);
-
         if (this.state.isLoading || !this.state.complete_bundles.length > 0) {
             return (
                 <LoadScreen />
@@ -383,10 +436,10 @@ export default class SelectBundle extends React.Component {
                 <View style={styles.containerContent}>
 
                     <View style={styles.containerHeader}>
-                    <Text style={styles.textEarning}>Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
+                        <Text style={styles.textEarning}>Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
                     </View>
 
-                    <View style={{...styles.containerItem, backgroundColor: '#1F1F1F', borderRadius: 5, borderWidth: 2, borderColor: '#7F7F7F'   }}>
+                    <View style={{ ...styles.containerItem, backgroundColor: '#1F1F1F', borderRadius: 5, borderWidth: 2, borderColor: '#7F7F7F' }}>
                         <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center' }}>{this.state.currentDate.toLocaleString()}</Text>
                         <TouchableOpacity style={styles.buttonLogout}
                             onPress={this._onPress_Logout}
@@ -399,7 +452,7 @@ export default class SelectBundle extends React.Component {
                         <Text style={styles.textEarning}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
                     </View>
                     <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
-                       
+
                         <View style={{ width: Math.round(DEVICE_WIDTH * 0.13), backgroundColor: '#292929', color: '#292929' }} >
                             <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929' }}>-</Text>
                             <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
@@ -440,10 +493,40 @@ export default class SelectBundle extends React.Component {
                     </View>
 
                     <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5) }}>
-    <Text style={{ ...styles.titleText, color: 'white' }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
-                        <ScrollView style={styles.contentScroll}>
-                            {this.state.complete_bundles.map(b => (
-                                <TouchableOpacity key={b.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)}>
+                        <Text style={{ ...styles.titleText, color: 'white' }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
+
+                        <ScrollView style={styles.contentScroll}
+                        // onScroll={({ nativeEvent }) => {
+                        //     if (this.isCloseToBottom(nativeEvent)) {
+                        //         this._sliceBundle(1)
+                        //     } else {
+                        //         if (this.isCloseToTop(nativeEvent) && this.state.startListBundles > 0 ) {
+                        //             this._sliceBundle(-1)
+
+                        //         }
+                        //     }
+                        // }}
+                        // scrollEventThrottle={40}
+                        >
+                            {this.state.startListBundles > 0 ?
+                                // <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize  * this.state.chuckSize * this.state.currentChuck )  }}>
+
+                                // </View>
+
+                                <TouchableOpacity style={styles.opBtn} activeOpacity={0.7} onPress={() => this._sliceBundle(-1)}>
+                                    <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize * 2) }} >
+                                        <Text style={{ color: '#FFF', margin: 5 }}>
+                                            ...
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                :
+                                null
+                            }
+
+                            {this.state.complete_bundles.slice(this.state.startListBundles, this.state.endListBundles).map(b => (
+                                <TouchableOpacity key={b.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)} >
                                     <View style={{ ...styles.opItem, backgroundColor: b.isSelected ? '#70cc33' : '#696969' }}>
                                         <Text style={{ color: '#FFF', margin: 5 }}>
                                             {b.id}
@@ -451,33 +534,51 @@ export default class SelectBundle extends React.Component {
                                     </View>
                                 </TouchableOpacity>
                             ))}
+                            {/* <View style={{ ...styles.opItem, backgroundColor: '', height: (this.state.complete_bundles.length * itemScrollSize) - (itemScrollSize * this.state.currentChuck) }}>
+
+                            </View> */}
+                            <TouchableOpacity style={styles.opBtn} activeOpacity={0.7} onPress={() => this._sliceBundle(1)}>
+                                <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize * 2) }} >
+                                    <Text style={{ color: '#FFF', margin: 5 }}>
+                                        ...
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+
                         </ScrollView>
                     </View>
 
                     <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5) }}>
-                            <Text style={{ ...styles.titleText, color: 'white' }}>Operation {this.state.operation ? this.state.operation : '#'}</Text>
-                        <ScrollView style={styles.contentScroll}>
-                            {this.state.bundle ? this.state.bundle.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
-                                <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
-                                    <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#70cc33' : '#696969' }}>
-                                        <Text style={{ color: '#FFF', margin: 5 }}>
-                                            {o.id}
-                                        </Text>
-                                        {o.isFinished === null || o.isFinished === undefined ?
-                                            null
-                                            :
-                                            o.isFinished ?
-                                                <Ionicons name="md-checkmark" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
+                        <Text style={{ ...styles.titleText, color: 'white' }}>Operation {this.state.operation ? this.state.operation : '#'}</Text>
+                        {this.state.isSyncOperations ?
+                            <View style={{ ...styles.contentScroll, justifyContent: 'center', alignItems: 'center' }}>
+                                <Ionicons name="md-walk" style={{ color: '#FFF' }} size={50}></Ionicons>
+                            </View>
+                            :
+
+                            <ScrollView style={styles.contentScroll}>
+                                {this.state.bundle ? this.state.bundle.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
+                                    <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
+                                        <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#70cc33' : '#696969' }}>
+                                            <Text style={{ color: '#FFF', margin: 5 }}>
+                                                {o.id}
+                                            </Text>
+                                            {o.isFinished === null || o.isFinished === undefined ?
+                                                null
                                                 :
-                                                <Ionicons name="md-arrow-forward" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
-                                        }
-                                    </View>
-                                </TouchableOpacity>
-                            )) : null}
-                        </ScrollView>
+                                                o.isFinished ?
+                                                    <Ionicons name="md-checkmark" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
+                                                    :
+                                                    <Ionicons name="md-arrow-forward" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
+                                            }
+                                        </View>
+                                    </TouchableOpacity>
+                                )) : null}
+                            </ScrollView>
+                        }
                     </View>
 
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10}}>
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10 }}>
                         {this.state.timerVisible ?
                             <View style={{ width: '100%', justifyContent: 'center', alignContent: 'center' }}>
                                 <TouchableOpacity style={styles.buttonFinish}
@@ -515,6 +616,7 @@ export default class SelectBundle extends React.Component {
 }
 
 
+const itemScrollSize = 30;
 const isLandscape = Dimensions.get('window').height < Dimensions.get('window').width;
 const DEVICE_WIDTH = Math.round(isLandscape ? Dimensions.get('window').width : Dimensions.get('window').height) - 5;
 const DEVICE_HEIGHT = Math.round(isLandscape ? Dimensions.get('window').height : Dimensions.get('window').width) - 5;
@@ -562,6 +664,7 @@ const styles = StyleSheet.create({
         zIndex: 400
     },
     contentScroll: {
+
         marginLeft: 10,
         marginRight: 10,
         padding: 2,
@@ -696,10 +799,11 @@ const styles = StyleSheet.create({
     },
     opItem: {
         width: Math.round(DEVICE_WIDTH * 0.25),
+        height: itemScrollSize - 5,
         marginBottom: 5,
         borderRadius: 3,
         alignItems: 'center',
-        justifyContent:'center',
+        justifyContent: 'center',
         flexDirection: 'row'
     },
     preview: {
