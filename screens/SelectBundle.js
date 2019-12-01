@@ -36,7 +36,7 @@ export default class SelectBundle extends React.Component {
         this.state = {
             isLoading: true,
             isSyncOperations: false,
-
+            version: '0.1.0',
             syncBG: {
                 lastDate: new Date(),
                 isSyncTickets: false,
@@ -432,11 +432,9 @@ export default class SelectBundle extends React.Component {
         }
         return (
             <View style={styles.container}>
-
                 <View style={styles.containerContent}>
-
                     <View style={styles.containerHeader}>
-                        <Text style={styles.textEarning}>Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
+                        <Text style={styles.textEarning}>Version:{this.state.version}  Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
                     </View>
 
                     <View style={{ ...styles.containerItem, backgroundColor: '#1F1F1F', borderRadius: 5, borderWidth: 2, borderColor: '#7F7F7F' }}>
@@ -450,6 +448,7 @@ export default class SelectBundle extends React.Component {
                         <Text style={styles.textEarning}>Start: {this.state.employee.start_time}</Text>
                         <Text style={styles.textEarning}>Finish: {this.state.employee.finish_time}</Text>
                         <Text style={styles.textEarning}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
+                        {/* <Text style={styles.textEarning}>Weekly Goal %: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text> */}
                     </View>
                     <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
 
