@@ -1,4 +1,5 @@
-import { AppLoading } from 'expo';
+import { AppLoading, Updates} from 'expo';
+
 import { Asset } from 'expo-asset';
 import * as Font from 'expo-font';
 import React, { useState } from 'react';
@@ -10,6 +11,8 @@ import Main from './components/Main';
 
 export default function App(props) {
   const [isLoadingComplete, setLoadingComplete] = useState(false);
+  
+  checkUpdates();
 
   if (!isLoadingComplete && !props.skipLoadingScreen) {
     return (
@@ -26,6 +29,20 @@ export default function App(props) {
         <Main /> 
       </View>
     );
+  }
+}
+
+
+async function checkUpdates(){
+  try {
+    const update = await Updates.checkForUpdateAsync();
+    if (update.isAvailable) {
+      await Updates.fetchUpdateAsync();
+      alert("Updating...")
+      Updates.reloadFromCache();
+    }
+  } catch (e) {
+    // handle or log error
   }
 }
 

@@ -3,7 +3,7 @@
   "expoServerPort": null,
   "packagerPort": null,
   "packagerPid": null,
-  "expoServerNgrokUrl": null,
-  "packagerNgrokUrl": null,
-  "ngrokPid": null
+  "expoServerNgrokUrl": "https://5r-rgs.guigng.mobile.exp.direct",
+  "packagerNgrokUrl": "https://packager.5r-rgs.guigng.mobile.exp.direct",
+  "ngrokPid": 30614
 }

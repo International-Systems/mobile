@@ -43,8 +43,8 @@ export default class LoginScreenNum extends Component {
 
 
     async updateCompleteBundle() {
-        // fetch(`${global.hostname}/complete/bundle`)
-        fetch(`${global.hostname}/structure/bundle`)
+        fetch(`${global.hostname}/complete/bundle`)
+        // fetch(`${global.hostname}/structure/bundle`)
             .then((response) => response.json())
             .then(async (responseJson) => {
                 console.log("Bundles " + responseJson.length);

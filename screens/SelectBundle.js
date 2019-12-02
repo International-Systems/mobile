@@ -130,12 +130,13 @@ export default class SelectBundle extends React.Component {
                 }))
             }));
         }
-
-        this.setState({
+        
+        await this.setState({
             isLoading: false,
             employee,
             complete_bundles
         });
+
     }
 
 
@@ -305,8 +306,6 @@ export default class SelectBundle extends React.Component {
             bundle,
             complete_bundles
         });
-
-
         this.selectOperation();
     }
 
@@ -361,14 +360,14 @@ export default class SelectBundle extends React.Component {
 
         const employee = {
             ...this.state.employee,
-            earn_today: this.state.employee.earn_today + this.state.ticket.earn,
-            earn_week: this.state.employee.earn_week + this.state.ticket.earn,
+            earn_today: this.state.employee.earn_today + this.state.ticket.earn
         };
 
         //mark ticket as finished
         let bundle = this.state.bundle;
         bundle = {
             ...bundle,
+            isSelected: true,
             operations: bundle.operations.map(o => o.id == this.state.operation ? { ...o, isFinished: true } : o)
         }
         const complete_bundles = this.state.complete_bundles.map(b => b.id == bundle.id ? bundle : b)
@@ -448,13 +447,13 @@ export default class SelectBundle extends React.Component {
                         <Text style={styles.textEarning}>Start: {this.state.employee.start_time}</Text>
                         <Text style={styles.textEarning}>Finish: {this.state.employee.finish_time}</Text>
                         <Text style={styles.textEarning}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
-                        {/* <Text style={styles.textEarning}>Weekly Goal %: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text> */}
+                       
                     </View>
                     <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
 
                         <View style={{ width: Math.round(DEVICE_WIDTH * 0.13), backgroundColor: '#292929', color: '#292929' }} >
-                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929' }}>-</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929'}}>Wk.Goal %</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', fontSize: 20, fontWeight: 'bold'}}>{parseFloat(((this.state.employee.total_hours * ((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today))) / this.state.employee.wk_goal) * 100).toFixed(2) + "%"}</Text>
                             <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
                             {(this.state.employee.earn_today / this.state.employee.salary_today) > 0.95 ?
                                 <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#90Fc55' }}>Excelent!</Text>
@@ -486,8 +485,8 @@ export default class SelectBundle extends React.Component {
                             <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Weekly</Text>
                             <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_week + this.state.employee.earn_today).toFixed(2)}</Text>
                             <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_week + this.state.employee.salary_today).toFixed(2)}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat((this.state.employee.earn_week / this.state.employee.salary_week) * 100).toFixed(2) + "%"}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.earn_week / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat(((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.salary_week + this.state.employee.salary_today)) * 100).toFixed(2) + "%"}</Text>
+                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat((this.state.employee.earn_week + this.state.employee.earn_today)/ (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
                         </View>
                     </View>
 
