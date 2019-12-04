@@ -39,9 +39,6 @@ export default class LoginScreenNum extends Component {
         this.updateCompleteBundle();
         this.updateEmployee();
     }
-
-
-
     async updateCompleteBundle() {
         fetch(`${global.hostname}/complete/bundle`)
         // fetch(`${global.hostname}/structure/bundle`)

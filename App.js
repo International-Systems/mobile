@@ -38,7 +38,6 @@ async function checkUpdates(){
     const update = await Updates.checkForUpdateAsync();
     if (update.isAvailable) {
       await Updates.fetchUpdateAsync();
-      alert("Updating...")
       Updates.reloadFromCache();
     }
   } catch (e) {
