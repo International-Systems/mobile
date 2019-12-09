@@ -1,9 +1,9 @@
 {
   "devToolsPort": 19002,
-  "expoServerPort": 19000,
-  "packagerPort": 19001,
-  "packagerPid": 46490,
-  "expoServerNgrokUrl": "https://5r-rgs.guigng.mobile.exp.direct",
-  "packagerNgrokUrl": "https://packager.5r-rgs.guigng.mobile.exp.direct",
-  "ngrokPid": 46508
+  "expoServerPort": null,
+  "packagerPort": null,
+  "packagerPid": null,
+  "expoServerNgrokUrl": null,
+  "packagerNgrokUrl": null,
+  "ngrokPid": null
 }

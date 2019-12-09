@@ -36,7 +36,7 @@ export default class SelectBundle extends React.Component {
         this.state = {
             isLoading: true,
             isSyncOperations: false,
-            version: '9.12.3',
+            version: '9.12.6',
             syncBG: {
                 lastDate: new Date(),
                 isSyncTickets: false,
@@ -143,11 +143,28 @@ export default class SelectBundle extends React.Component {
     updateCurrentTime() {
         const currentDate = new Date();
         const startTime = new Date(this.state.employee.start_timestamp);
+        const finishTime = new Date(this.state.employee.finish_timestamp);
+
         const diffTime = currentDate.getTimezoneOffset();
+
         let startTimeDateAdjust = startTime.getTime() + (diffTime * 60 * 1000);
         startTimeDateAdjust = startTimeDateAdjust - (currentDate < startTimeDateAdjust ? 86400000 : 0);
         const startDateAdjust = new Date(startTimeDateAdjust);
+
+        let finishTimeDateAdjust = finishTime.getTime() + (diffTime * 60 * 1000);
+        // finishTimeDateAdjust = finishTimeDateAdjust - (currentDate < finishTimeDateAdjust ? 86400000 : 0);
+        const finishDateAdjust = new Date(finishTimeDateAdjust);
+
         const current_hr_today = (currentDate.getTime() - startTimeDateAdjust) / 3600000;
+
+        // console.log("Start: " + startDateAdjust.toISOString())
+        // console.log("Finish: " + finishDateAdjust.toISOString())
+        // console.log(currentDate)
+
+        if(currentDate >= finishDateAdjust){
+            clearInterval(this.state.timerUpdateDate);
+            return;
+        }
 
         this.setState({
             currentDate,
@@ -195,7 +212,19 @@ export default class SelectBundle extends React.Component {
     }
 
     async sendTickets() {
-        const tickets_pending = JSON.parse(await AsyncStorage.getItem('tickets_pending'));
+
+        if (this.state.syncBG.isSyncTickets) {
+            return;
+        }
+
+        this.setState({
+            syncBG: {
+                ...this.state.syncBG,
+                isSyncTickets: true
+            }
+        });
+
+        let tickets_pending = JSON.parse(await AsyncStorage.getItem('tickets_pending'));
 
         const tickets_finished = tickets_pending.filter(t => t.end_time);
 
@@ -212,24 +241,52 @@ export default class SelectBundle extends React.Component {
                 referrer: 'no-referrer',
                 body: JSON.stringify(tickets_finished)
             })
-            .then((response) => response.json())
-            .then((res) => {
-                if(res.length > 0){
-                    alert("Tickets already finished: \n" +  res.map(r => "Ticket: " + r.ticket + "-Emp:" + r.empnum + "\n").join(""));
-                }
-                const _tickets_pending = tickets_pending.filter(t => tickets_finished.filter(f => f.ticket == t.ticket).length == 0);
-                AsyncStorage.setItem('tickets_pending', JSON.stringify(_tickets_pending));
-                this.setState({
-                    tickets_pending: _tickets_pending,
-                    syncBG: {
-                        ...this.state.syncBG,
-                        lastDate: new Date(),
-                        isSyncTickets: true
+                .then((response) => response.json())
+                .then(async (res) => {
+                    if (res.length > 0) {
+                        alert("Tickets already processed: \n" + res.map(r => "Ticket: " + r.ticket + "-Emp:" + r.empnum + "\n").join(""));
                     }
+
+                    tickets_pending = JSON.parse(await AsyncStorage.getItem('tickets_pending'));
+                    const _tickets_pending = tickets_pending.filter(t => tickets_finished.filter(f => f.ticket == t.ticket).length == 0);
+                    AsyncStorage.setItem('tickets_pending', JSON.stringify(_tickets_pending));
+                    this.updateEmployee();
+                    this.setState({
+                        tickets_pending: _tickets_pending,
+                        syncBG: {
+                            ...this.state.syncBG,
+                            lastDate: new Date(),
+                            isSyncTickets: false
+                        }
+                    });
+                })
+                .catch(e => {
+                    console.log(e);
+                    alert("Error connecting to the server.")
+                    this.setState({
+                        syncBG: {
+                            ...this.state.syncBG,
+                            lastDate: new Date(),
+                            isSyncTickets: false
+                        }
+                    });
+
+                })
+        }
+    }
+
+    async updateEmployee() {
+        fetch(`${global.hostname}/employee/${this.state.employee.empnum}`)
+            .then((response) => response.json())
+            .then(async (employee) => {
+                await AsyncStorage.setItem('employee', JSON.stringify(employee));
+                await this.setState({
+                    employee
                 });
             })
-                .catch(e => alert("Error connecting to the server."))
-        }
+            .catch(async (error) => {
+                console.error(error);
+            });
     }
 
     async updateBundle() {
@@ -315,8 +372,8 @@ export default class SelectBundle extends React.Component {
 
     async _selectOperation(operation) {
         //Not allow to start ticket if finished
-        if (operation.isFinished) {
-            alert("Ticket finished by emp: " + operation.ticket.empnum);
+        if (operation.is_finished) {
+            alert("Ticket paid to emp: " + operation.finished_by);
             return;
         }
         await this.setState({
@@ -330,17 +387,33 @@ export default class SelectBundle extends React.Component {
             return;
         }
 
-        this.setTimerVisible(true);
-        this.startCountDown();
-        const tickets_pending = this.state.tickets_pending;
-        tickets_pending.push({
-            empnum: this.state.employee.empnum,
-            ticket: this.state.ticket.id,
-            start_time: new Date().toISOString()
-        });
-        this.setState({
-            tickets_pending
-        })
+        fetch(`${global.hostname}/ticket/${this.state.ticket.id}`)
+            .then((response) => response.json())
+            .then(async (ticket) => {
+                if (ticket.is_finished) {
+                    alert("Ticket paid to emp: " + ticket.finished_by);
+                    this.updateBundle();
+                    return;
+                }
+
+                this.setTimerVisible(true);
+                this.startCountDown();
+                const tickets_pending = this.state.tickets_pending;
+                tickets_pending.push({
+                    empnum: this.state.employee.empnum,
+                    ticket: this.state.ticket.id,
+                    start_time: new Date().toISOString()
+                });
+                this.setState({
+                    tickets_pending
+                })
+
+            })
+            .catch(async (error) => {
+                console.error(error);
+            });
+
+
     }
 
     async onPress_Finish() {
@@ -361,28 +434,23 @@ export default class SelectBundle extends React.Component {
             end_time: new Date().toISOString()
         });
 
-        const employee = {
-            ...this.state.employee,
-            earn_today: this.state.employee.earn_today + this.state.ticket.earn
-        };
+
         //mark ticket as finished
         let bundle = this.state.bundle;
         bundle = {
             ...bundle,
             isSelected: true,
-            operations: bundle.operations.map(o => o.id == this.state.operation ? { ...o, isFinished: true } : o)
+            operations: bundle.operations.map(o => o.id == this.state.operation ? { ...o, is_finished: true } : o)
         }
         const complete_bundles = this.state.complete_bundles.map(b => b.id == bundle.id ? bundle : b)
         // console.log(complete_bundles);
         await this.setState({
             bundle,
             complete_bundles,
-            tickets_pending,
-            employee
+            tickets_pending
         });
 
         await AsyncStorage.setItem('complete_bundles', JSON.stringify(complete_bundles));
-        await AsyncStorage.setItem('employee', JSON.stringify(employee));
         await AsyncStorage.setItem('tickets_pending', JSON.stringify(tickets_pending));
         this.syncServer();
     }
@@ -439,8 +507,8 @@ export default class SelectBundle extends React.Component {
                         <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Finish:{`${this.state.employee.finish_time.split(':')[0]}:${this.state.employee.finish_time.split(':')[1]}`}</Text>
                         <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', color: '#292929' }}>{this.state.currentDate.toLocaleString()}</Text>
 
-                        <Text style={{ ...styles.textEarning, color:"#FCF3CF",fontWeight: 'bold', textAlign: 'center', backgroundColor: '#D4AC0D',borderTopColor: '#B7950B', borderTopWidth: 5 }}>Wk.Goal %</Text>
-                        <Text style={{ ...styles.textEarning,color:"#FCF3CF",  backgroundColor: '#D4AC0D', fontSize: 30, fontWeight: 'bold', textAlign: 'center', textAlignVertical: "center" }}>{parseFloat(((this.state.employee.total_hours * ((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today))) / this.state.employee.wk_goal) * 100).toFixed(2) + "%"}</Text>
+                        <Text style={{ ...styles.textEarning, color: "#FCF3CF", fontWeight: 'bold', textAlign: 'center', backgroundColor: '#D4AC0D', borderTopColor: '#B7950B', borderTopWidth: 5 }}>Wk.Goal %</Text>
+                        <Text style={{ ...styles.textEarning, color: "#FCF3CF", backgroundColor: '#D4AC0D', fontSize: 30, fontWeight: 'bold', textAlign: 'center', textAlignVertical: "center" }}>{parseFloat(((this.state.employee.total_hours * ((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today))) / this.state.employee.wk_goal) * 100).toFixed(2) + "%"}</Text>
                         <Text style={{ ...styles.textEarning, color: '#292929', textAlign: 'center', textAlignVertical: "center" }}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
                     </View>
                     <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
@@ -483,8 +551,8 @@ export default class SelectBundle extends React.Component {
                         </View>
                     </View>
 
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor:'#494949', borderTopWidth: 5, borderTopColor:'#292929', borderLeftWidth: 2, borderLeftColor:'#202020', borderTopLeftRadius: 5   }}>
-                        <Text style={{ ...styles.titleText, color: 'white', borderTopLeftRadius: 5  }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929', borderLeftWidth: 2, borderLeftColor: '#202020', borderTopLeftRadius: 5 }}>
+                        <Text style={{ ...styles.titleText, color: 'white', borderTopLeftRadius: 5 }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
 
                         <ScrollView style={styles.contentScroll}
                         // onScroll={({ nativeEvent }) => {
@@ -539,7 +607,7 @@ export default class SelectBundle extends React.Component {
                         </ScrollView>
                     </View>
 
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor:'#494949', borderTopWidth: 5, borderTopColor:'#292929'  }}>
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
                         <Text style={{ ...styles.titleText, color: 'white' }}>Operation {this.state.operation ? this.state.operation : '#'}</Text>
                         {this.state.isSyncOperations ?
                             <View style={{ ...styles.contentScroll, justifyContent: 'center', alignItems: 'center' }}>
@@ -548,19 +616,16 @@ export default class SelectBundle extends React.Component {
                             :
 
                             <ScrollView style={styles.contentScroll}>
-                                {this.state.bundle ? this.state.bundle.operations.filter(o => !(o.isFinished === undefined || o.isFinished === null)).map(o => (
+                                {this.state.bundle ? this.state.bundle.operations.map(o => (
                                     <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
                                         <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#70cc33' : '#696969' }}>
                                             <Text style={{ color: '#FFF', margin: 5 }}>
                                                 {o.id}
                                             </Text>
-                                            {o.isFinished === null || o.isFinished === undefined ?
-                                                null
+                                            {o.is_finished ?
+                                                <Ionicons name="md-checkmark" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
                                                 :
-                                                o.isFinished ?
-                                                    <Ionicons name="md-checkmark" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
-                                                    :
-                                                    <Ionicons name="md-arrow-forward" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
+                                                <Ionicons name="md-arrow-forward" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
                                             }
                                         </View>
                                     </TouchableOpacity>
@@ -569,7 +634,7 @@ export default class SelectBundle extends React.Component {
                         }
                     </View>
 
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10, backgroundColor:'#494949', borderTopWidth: 5, borderTopColor:'#292929' }}>
+                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10, backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
                         {this.state.timerVisible ?
                             <View style={{ width: '100%', justifyContent: 'center', alignContent: 'center' }}>
                                 <TouchableOpacity style={styles.buttonFinish}
@@ -600,7 +665,6 @@ export default class SelectBundle extends React.Component {
                         }
                     </View>
                 </View>
-
             </View>
         );
     }
@@ -611,8 +675,6 @@ const itemScrollSize = 30;
 const isLandscape = Dimensions.get('window').height < Dimensions.get('window').width;
 const DEVICE_WIDTH = Math.round(isLandscape ? Dimensions.get('window').width : Dimensions.get('window').height) - 5;
 const DEVICE_HEIGHT = Math.round(isLandscape ? Dimensions.get('window').height : Dimensions.get('window').width) - 5;
-
-
 
 const styles = StyleSheet.create({
     container: {
@@ -758,10 +820,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         fontSize: 50,
         marginBottom: 10,
-        width: '100%', 
-        textAlign: 'center', 
+        width: '100%',
+        textAlign: 'center',
         textAlignVertical: "center"
-        
+
     },
     button: {
         alignItems: 'center',
