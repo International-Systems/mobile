@@ -13,7 +13,8 @@ import {
     PermissionsAndroid,
     AsyncStorage,
     Modal,
-    TouchableHighlight
+    TouchableHighlight,
+    TextInput
 } from 'react-native';
 
 import LoadScreen from './LoadScreen';
@@ -34,9 +35,11 @@ export default class SelectBundle extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+
+            isShowSetting: false,
             isLoading: true,
             isSyncOperations: false,
-            version: '9.12.6',
+            version: '9.12.9',
             syncBG: {
                 lastDate: new Date(),
                 isSyncTickets: false,
@@ -77,6 +80,7 @@ export default class SelectBundle extends React.Component {
         this._onPress_Start = this._onPress_Start.bind(this);
         this._onPress_Finish = this._onPress_Finish.bind(this);
         this._sliceBundle = this._sliceBundle.bind(this);
+        this._saveEmployee = this._saveEmployee.bind(this);
     }
 
     componentDidMount() {
@@ -139,6 +143,8 @@ export default class SelectBundle extends React.Component {
 
     }
 
+    //RUNS EVERY SECOND
+    //Update the clock and the values on earning/hr
 
     updateCurrentTime() {
         const currentDate = new Date();
@@ -157,11 +163,8 @@ export default class SelectBundle extends React.Component {
 
         const current_hr_today = (currentDate.getTime() - startTimeDateAdjust) / 3600000;
 
-        // console.log("Start: " + startDateAdjust.toISOString())
-        // console.log("Finish: " + finishDateAdjust.toISOString())
-        // console.log(currentDate)
 
-        if(currentDate >= finishDateAdjust){
+        if (currentDate >= finishDateAdjust) {
             clearInterval(this.state.timerUpdateDate);
             return;
         }
@@ -198,6 +201,7 @@ export default class SelectBundle extends React.Component {
 
     startCountDown() {
         this.setState({ timeCountDown: this.state.ticket.time * 60 });
+        clearInterval(this.intervalCountdown);
         this.intervalCountdown = setInterval(
             () => {
                 this.setState({ timeCountDown: this.state.timeCountDown - 1 });
@@ -482,6 +486,61 @@ export default class SelectBundle extends React.Component {
         })
     }
 
+
+    renderScrollPart({ contentOffset }) {
+        let renderBlockSize = itemScrollSize * this.state.chuckSize;
+        let totalSize = itemScrollSize * this.state.complete_bundles.length;
+        let topBlock = contentOffset.y - renderBlockSize;
+        let bottomBlock = contentOffset.y - renderBlockSize - topBlock;
+        let offSetItems = Math.round(contentOffset.y / itemScrollSize)
+
+        let startListBundles = offSetItems;
+        let endListBundles = offSetItems + this.state.chuckSize;
+
+        // console.log("-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-");
+        // console.log("Total size : " + totalSize);
+        // console.log("Top size   : " + topBlock);
+        // console.log("Block size : " + renderBlockSize);
+        // console.log("Bottom size: " + bottomBlock);
+        // console.log("Offset     : " + contentOffset.y)
+        // console.log("Start      : " + startListBundles)
+        // console.log("End        : " + endListBundles)
+        // console.log("-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-:-");
+
+
+        if (startListBundles != this.state.startListBundles && endListBundles != this.state.endListBundles) {
+            this.setState({
+                startListBundles,
+                endListBundles
+            });
+        }
+    }
+
+
+    _saveEmployee() {
+
+        fetch(`${global.hostname}/update/employee`, {
+            method: 'POST', // *GET, POST, PUT, DELETE, etc.
+            mode: 'cors', // no-cors, *cors, same-origin
+            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+            credentials: 'same-origin', // include, *same-origin, omit
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            redirect: 'follow',
+            referrer: 'no-referrer',
+            body: JSON.stringify(this.state.employee)
+        })
+            .then((response) => response.json())
+            .then(async (res) => {
+                this.setState({ 
+                    employee: res,
+                    isShowSetting: false 
+                })
+            });
+    }
+
+
     render() {
         if (this.state.isLoading || !this.state.complete_bundles.length > 0) {
             return (
@@ -490,181 +549,202 @@ export default class SelectBundle extends React.Component {
         }
         return (
             <View style={styles.container}>
-                <View style={styles.containerContent}>
-                    <View style={styles.containerHeader}>
-                        <Text style={styles.textEarning}>V {this.state.version}  Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
-                    </View>
-
-                    <View style={{ ...styles.containerItem, backgroundColor: '#F1C40F', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
-                        <TouchableOpacity style={styles.buttonLogout}
-                            onPress={this._onPress_Logout}
-                            activeOpacity={1}>
-                            <Ionicons name="md-arrow-dropleft" style={{ color: '#292929' }} size={26}></Ionicons>
-                            <Text style={{ ...styles.textEarning, color: '#292929', fontWeight: 'bold', width: null, height: '100%', textAlign: 'center', textAlignVertical: "center" }}>Logout</Text>
-                        </TouchableOpacity>
-
-                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Start: {`${this.state.employee.start_time.split(':')[0]}:${this.state.employee.start_time.split(':')[1]}`}</Text>
-                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Finish:{`${this.state.employee.finish_time.split(':')[0]}:${this.state.employee.finish_time.split(':')[1]}`}</Text>
-                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', color: '#292929' }}>{this.state.currentDate.toLocaleString()}</Text>
-
-                        <Text style={{ ...styles.textEarning, color: "#FCF3CF", fontWeight: 'bold', textAlign: 'center', backgroundColor: '#D4AC0D', borderTopColor: '#B7950B', borderTopWidth: 5 }}>Wk.Goal %</Text>
-                        <Text style={{ ...styles.textEarning, color: "#FCF3CF", backgroundColor: '#D4AC0D', fontSize: 30, fontWeight: 'bold', textAlign: 'center', textAlignVertical: "center" }}>{parseFloat(((this.state.employee.total_hours * ((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today))) / this.state.employee.wk_goal) * 100).toFixed(2) + "%"}</Text>
-                        <Text style={{ ...styles.textEarning, color: '#292929', textAlign: 'center', textAlignVertical: "center" }}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
-                    </View>
-                    <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
-
-                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.13), backgroundColor: '#292929', color: '#292929' }} >
-                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', backgroundColor: '#292929', color: '#292929' }}>-</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
-                            {(this.state.employee.earn_today / this.state.employee.salary_today) > 0.95 ?
-                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#90Fc55' }}>Excelent!</Text>
-                                :
-                                (this.state.employee.earn_today / this.state.employee.salary_today) > 0.75 ?
-                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#70cc33' }}>Very Good!</Text>
-                                    :
-                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#F90f0f' }}>Warning!</Text>
-                            }
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
-
+                {this.state.isShowSetting ?
+                    <View style={styles.containerContent}>
+                        <View style={styles.containerHeader}>
+                            <Text style={styles.textEarning}>V {this.state.version}  Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
                         </View>
+                        <View style={{ ...styles.containerItem, flexDirection: 'column', alignItems: 'flex-start', width: Math.round(DEVICE_WIDTH * 0.9), backgroundColor: '#F1C40F', paddingLeft: 5 }}>
+                            <View style={styles.containerConf} >
 
-                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.13) }} >
-                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929' }}>-</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Ticket</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hourly</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Efficiency</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hr/Avg</Text>
-                        </View>
-                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
-                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Daily</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_today).toFixed(2)}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat((this.state.employee.earn_today / this.state.employee.salary_today) * 100).toFixed(2) + "%"}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.earn_today / this.state.employee.current_hr_today).toFixed(2)}</Text>
-                        </View>
-                        <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
-                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Weekly</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_week + this.state.employee.earn_today).toFixed(2)}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_week + this.state.employee.salary_today).toFixed(2)}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat(((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.salary_week + this.state.employee.salary_today)) * 100).toFixed(2) + "%"}</Text>
-                            <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
-                        </View>
-                    </View>
-
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929', borderLeftWidth: 2, borderLeftColor: '#202020', borderTopLeftRadius: 5 }}>
-                        <Text style={{ ...styles.titleText, color: 'white', borderTopLeftRadius: 5 }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
-
-                        <ScrollView style={styles.contentScroll}
-                        // onScroll={({ nativeEvent }) => {
-                        //     if (this.isCloseToBottom(nativeEvent)) {
-                        //         this._sliceBundle(1)
-                        //     } else {
-                        //         if (this.isCloseToTop(nativeEvent) && this.state.startListBundles > 0 ) {
-                        //             this._sliceBundle(-1)
-
-                        //         }
-                        //     }
-                        // }}
-                        // scrollEventThrottle={40}
-                        >
-                            {this.state.startListBundles > 0 ?
-                                // <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize  * this.state.chuckSize * this.state.currentChuck )  }}>
-
-                                // </View>
-
-                                <TouchableOpacity style={styles.opBtn} activeOpacity={0.7} onPress={() => this._sliceBundle(-1)}>
-                                    <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize * 2) }} >
-                                        <Text style={{ color: '#FFF', margin: 5 }}>
-                                            ...
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-
-                                :
-                                null
-                            }
-
-                            {this.state.complete_bundles.slice(this.state.startListBundles, this.state.endListBundles).map(b => (
-                                <TouchableOpacity key={b.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)} >
-                                    <View style={{ ...styles.opItem, backgroundColor: b.isSelected ? '#70cc33' : '#696969' }}>
-                                        <Text style={{ color: '#FFF', margin: 5 }}>
-                                            {b.id}
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                            {/* <View style={{ ...styles.opItem, backgroundColor: '', height: (this.state.complete_bundles.length * itemScrollSize) - (itemScrollSize * this.state.currentChuck) }}>
-
-                            </View> */}
-                            <TouchableOpacity style={styles.opBtn} activeOpacity={0.7} onPress={() => this._sliceBundle(1)}>
-                                <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize * 2) }} >
-                                    <Text style={{ color: '#FFF', margin: 5 }}>
-                                        ...
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
-
-                        </ScrollView>
-                    </View>
-
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
-                        <Text style={{ ...styles.titleText, color: 'white' }}>Operation {this.state.operation ? this.state.operation : '#'}</Text>
-                        {this.state.isSyncOperations ?
-                            <View style={{ ...styles.contentScroll, justifyContent: 'center', alignItems: 'center' }}>
-                                <Ionicons name="md-walk" style={{ color: '#FFF' }} size={50}></Ionicons>
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', color: '#292929' }}> Start Time </Text>
+                                <TextInput style={{ height: 40, borderColor: 'gray', borderWidth: 1 }}
+                                    onChangeText={start_time => this.setState({
+                                        employee: {
+                                            ...this.state.employee,
+                                            start_time
+                                        }
+                                    })}
+                                    value={this.state.employee.start_time}
+                                />
                             </View>
-                            :
+                            <View style={styles.containerConf} >
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', color: '#292929' }}>Finish Time</Text>
+                                <TextInput style={{ height: 40, borderColor: 'gray', borderWidth: 1 }}
+                                    onChangeText={finish_time => this.setState({
+                                        employee: {
+                                            ...this.state.employee,
+                                            finish_time
+                                        }
+                                    })}
+                                    value={this.state.employee.finish_time}
+                                />
 
-                            <ScrollView style={styles.contentScroll}>
-                                {this.state.bundle ? this.state.bundle.operations.map(o => (
-                                    <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
-                                        <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#70cc33' : '#696969' }}>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={{ backgroundColor: '' }}
+                            onPress={this._saveEmployee}
+                            activeOpacity={1}>
+                            <View style={{ alignItems: 'center', width: Math.round(DEVICE_WIDTH * 0.9), marginTop: 10, backgroundColor: '#444', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
+                                <Text style={{ padding: 10, fontWeight: 'bold', color: '#FFF' }}>Save</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                    :
+                    <View style={styles.containerContent}>
+                        <View style={styles.containerHeader}>
+                            <Text style={styles.textEarning}>V {this.state.version}  Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
+                        </View>
+
+                        <View style={{ ...styles.containerItem, backgroundColor: '#F1C40F', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
+                            <TouchableOpacity style={styles.buttonNav}
+                                onPress={this._onPress_Logout}
+                                activeOpacity={1}>
+                                <Ionicons name="md-arrow-dropleft" style={{ color: '#292929' }} size={26}></Ionicons>
+                                <Text style={{ ...styles.textEarning, color: '#292929', fontWeight: 'bold', width: null, height: '100%', textAlign: 'center', textAlignVertical: "center" }}>Logout</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.buttonNav}
+                                onPress={() => this.setState({ isShowSetting: true })}
+                                activeOpacity={1}>
+                                <Ionicons name="md-settings" style={{ color: '#292929' }} size={22}></Ionicons>
+                            </TouchableOpacity>
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Start: {`${this.state.employee.start_time.split(':')[0]}:${this.state.employee.start_time.split(':')[1]}`}</Text>
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Finish:{`${this.state.employee.finish_time.split(':')[0]}:${this.state.employee.finish_time.split(':')[1]}`}</Text>
+                            <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', color: '#292929' }}>{this.state.currentDate.toLocaleString()}</Text>
+
+                            <Text style={{ ...styles.textEarning, color: "#FCF3CF", fontWeight: 'bold', textAlign: 'center', backgroundColor: '#D4AC0D', borderTopColor: '#B7950B', borderTopWidth: 5 }}>Wk.Goal %</Text>
+                            <Text style={{ ...styles.textEarning, color: "#FCF3CF", backgroundColor: '#D4AC0D', fontSize: 30, fontWeight: 'bold', textAlign: 'center', textAlignVertical: "center" }}>{parseFloat(((this.state.employee.total_hours * ((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today))) / this.state.employee.wk_goal) * 100).toFixed(2) + "%"}</Text>
+                            <Text style={{ ...styles.textEarning, color: '#292929', textAlign: 'center', textAlignVertical: "center" }}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
+                        </View>
+                        <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
+
+                            <View style={{ width: Math.round(DEVICE_WIDTH * 0.13), backgroundColor: '#292929', color: '#292929' }} >
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                                {(this.state.employee.earn_today / this.state.employee.salary_today) > 0.95 ?
+                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#90Fc55' }}>Excelent!</Text>
+                                    :
+                                    (this.state.employee.earn_today / this.state.employee.salary_today) > 0.75 ?
+                                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#70cc33' }}>Very Good!</Text>
+                                        :
+                                        <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#F90f0f' }}>Warning!</Text>
+                                }
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+
+                            </View>
+
+                            <View style={{ width: Math.round(DEVICE_WIDTH * 0.13) }} >
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Ticket</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hourly</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Efficiency</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hr/Avg</Text>
+                            </View>
+                            <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Daily</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_today).toFixed(2)}</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat((this.state.employee.earn_today / this.state.employee.salary_today) * 100).toFixed(2) + "%"}</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.earn_today / this.state.employee.current_hr_today).toFixed(2)}</Text>
+                            </View>
+                            <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Weekly</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_week + this.state.employee.earn_today).toFixed(2)}</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_week + this.state.employee.salary_today).toFixed(2)}</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat(((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.salary_week + this.state.employee.salary_today)) * 100).toFixed(2) + "%"}</Text>
+                                <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
+                            </View>
+                        </View>
+                        <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929', borderLeftWidth: 2, borderLeftColor: '#202020', borderTopLeftRadius: 5 }}>
+                            <Text style={{ ...styles.titleText, color: 'white', borderTopLeftRadius: 5 }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
+
+                            <ScrollView style={styles.contentScroll}
+                                onScroll={({ nativeEvent }) => {
+                                    this.renderScrollPart(nativeEvent)
+                                }}
+                                scrollEventThrottle={120}
+                            >
+                                {this.state.startListBundles > 0 ?
+                                    <View style={{ ...styles.opItem, backgroundColor: '', height: (itemScrollSize * this.state.startListBundles) }}>
+
+                                    </View>
+                                    :
+                                    null
+                                }
+
+                                {this.state.complete_bundles.slice(this.state.startListBundles, this.state.endListBundles).map(b => (
+                                    <TouchableOpacity key={b.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectBundle(b)} >
+                                        <View style={{ ...styles.opItem, backgroundColor: b.isSelected ? '#70cc33' : '#696969' }}>
                                             <Text style={{ color: '#FFF', margin: 5 }}>
-                                                {o.id}
+                                                {b.id}
                                             </Text>
-                                            {o.is_finished ?
-                                                <Ionicons name="md-checkmark" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
-                                                :
-                                                <Ionicons name="md-arrow-forward" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
-                                            }
                                         </View>
                                     </TouchableOpacity>
-                                )) : null}
-                            </ScrollView>
-                        }
-                    </View>
+                                ))}
+                                <View style={{ ...styles.opItem, backgroundColor: '', height: (this.state.complete_bundles.length * itemScrollSize) - (itemScrollSize * this.state.endListBundles) }}>
 
-                    <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10, backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
-                        {this.state.timerVisible ?
-                            <View style={{ width: '100%', justifyContent: 'center', alignContent: 'center' }}>
-                                <TouchableOpacity style={styles.buttonFinish}
-                                    onPress={this._onPress_Finish}
-                                    activeOpacity={1}>
-                                    <Text style={styles.textFinishButton} >FINISH</Text>
-                                </TouchableOpacity>
-                                <Text style={styles.contentTextTimer}> {moment.duration(this.state.timeCountDown, "seconds").format()} </Text>
-                            </View>
-                            :
-                            <View style={{ width: '100%' }}>
-                                <TouchableOpacity style={{ ...styles.buttonStart, backgroundColor: this.state.ticket && this.state.ticket.time ? '#70cc33' : '#696969' }} onPress={this.state.ticket && this.state.ticket.time ? this._onPress_Start : null} activeOpacity={1}>
-                                    <Text style={styles.textScan} >START</Text>
-                                </TouchableOpacity>
-                                <Text style={{ color: '#FFF', marginTop: 10 }}>
-                                    {this.state.ticket ?
-                                        "Ticket: " + this.state.ticket.id + "\n" +
-                                        "Earn: " + "$" + parseFloat(this.state.ticket.earn).toFixed(2) + "\n" +
-                                        "Quantity: " + this.state.ticket.quantity + "\n" +
-                                        "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format() + "\n" +
-                                        "Color: " + this.state.ticket.color + "\n" +
-                                        "Style: " + this.state.ticket.style + "\n"
-                                        :
-                                        this.state.ticket === 'undefined' ? 'Ticket not found' : 'Select bundle and operation'
-                                    }
-                                </Text>
-                            </View>
-                        }
+                                </View>
+                            </ScrollView>
+                        </View>
+                        <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
+                            <Text style={{ ...styles.titleText, color: 'white' }}>Operation {this.state.operation ? this.state.operation : '#'}</Text>
+                            {this.state.isSyncOperations ?
+                                <View style={{ ...styles.contentScroll, justifyContent: 'center', alignItems: 'center' }}>
+                                    <Ionicons name="md-walk" style={{ color: '#FFF' }} size={50}></Ionicons>
+                                </View>
+                                :
+
+                                <ScrollView style={styles.contentScroll}>
+                                    {this.state.bundle ? this.state.bundle.operations.map(o => (
+                                        <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
+                                            <View style={{ ...styles.opItem, backgroundColor: o.isSelected ? '#70cc33' : '#696969' }}>
+                                                <Text style={{ color: '#FFF', margin: 5 }}>
+                                                    {o.id}
+                                                </Text>
+                                                {o.is_finished ?
+                                                    <Ionicons name="md-checkmark" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
+                                                    :
+                                                    <Ionicons name="md-arrow-forward" style={{ alignSelf: 'flex-end', color: '#70cc33' }} size={26}></Ionicons>
+                                                }
+                                            </View>
+                                        </TouchableOpacity>
+                                    )) : null}
+                                </ScrollView>
+                            }
+                        </View>
+                        <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10, backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
+                            {this.state.timerVisible ?
+                                <View style={{ width: '100%', justifyContent: 'center', alignContent: 'center' }}>
+                                    <TouchableOpacity style={styles.buttonFinish}
+                                        onPress={this._onPress_Finish}
+                                        activeOpacity={1}>
+                                        <Text style={styles.textFinishButton} >FINISH</Text>
+                                    </TouchableOpacity>
+                                    <Text style={styles.contentTextTimer}> {moment.duration(this.state.timeCountDown, "seconds").format()} </Text>
+                                </View>
+                                :
+                                <View style={{ width: '100%' }}>
+                                    <TouchableOpacity style={{ ...styles.buttonStart, backgroundColor: this.state.ticket && this.state.ticket.time ? '#70cc33' : '#696969' }} onPress={this.state.ticket && this.state.ticket.time ? this._onPress_Start : null} activeOpacity={1}>
+                                        <Text style={styles.textScan} >START</Text>
+                                    </TouchableOpacity>
+                                    <Text style={{ color: '#FFF', marginTop: 10 }}>
+                                        {this.state.ticket ?
+                                            "Ticket: " + this.state.ticket.id + "\n" +
+                                            "Earn: " + "$" + parseFloat(this.state.ticket.earn).toFixed(2) + "\n" +
+                                            "Quantity: " + this.state.ticket.quantity + "\n" +
+                                            "Time: " + moment.duration(this.state.ticket.time * 60, "seconds").format() + "\n" +
+                                            "Color: " + this.state.ticket.color + "\n" +
+                                            "Style: " + this.state.ticket.style + "\n"
+                                            :
+                                            this.state.ticket === 'undefined' ? 'Ticket not found' : 'Select bundle and operation'
+                                        }
+                                    </Text>
+                                </View>
+                            }
+                        </View>
+
                     </View>
-                </View>
+                }
             </View>
         );
     }
@@ -769,13 +849,13 @@ const styles = StyleSheet.create({
         width: '100%',
         color: 'white'
     },
-    buttonLogout: {
-
+    buttonNav: {
         flexWrap: 'wrap',
         flexDirection: 'row',
         alignContent: 'center',
         justifyContent: 'center',
-        width: '100%'
+        width: '50%',
+        height: 50
     },
     buttonModalDone: {
         alignItems: 'center',
@@ -823,6 +903,9 @@ const styles = StyleSheet.create({
         width: '100%',
         textAlign: 'center',
         textAlignVertical: "center"
+
+    },
+    containerConf: {
 
     },
     button: {
