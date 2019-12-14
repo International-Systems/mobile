@@ -45,6 +45,7 @@ export default class LoginScreenNum extends Component {
         this.getStorage();
         this.testConnection();
 
+        // this._doLogin();
     }
 
     async changeScreenOrientation() {
@@ -55,7 +56,7 @@ export default class LoginScreenNum extends Component {
         const employee = await AsyncStorage.getItem("employee");
         const host = await AsyncStorage.getItem("host");
 
-        this.setState({
+        await this.setState({
             employee: {
                 ...this.state.employee,
                 employee: employee ? employee : null
@@ -127,6 +128,7 @@ export default class LoginScreenNum extends Component {
     }
 
     _doLogin() {
+        console.log("EmpNum: " + this.state.employee.empnum);
         this.setState({ isLoading: true });
         fetch(`${global.hostname}/employee/${this.state.employee.empnum}`)
             .then((response) => response.json())
