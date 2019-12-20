@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     containerNumber: {
         height: '40%',
         padding: 20,
-        backgroundColor: '#f5e000',
+        backgroundColor: '#D8D8D8',
         alignItems: 'center',
         justifyContent: 'center'
     },

@@ -1,9 +1,10 @@
 {
   "devToolsPort": 19002,
-  "expoServerPort": 19000,
-  "packagerPort": 19001,
-  "packagerPid": 85751,
-  "expoServerNgrokUrl": "https://n5-vfn.guigng.mobile.exp.direct",
-  "packagerNgrokUrl": "https://packager.n5-vfn.guigng.mobile.exp.direct",
-  "ngrokPid": 85763
+  "expoServerPort": null,
+  "packagerPort": null,
+  "packagerPid": null,
+  "expoServerNgrokUrl": null,
+  "packagerNgrokUrl": null,
+  "ngrokPid": null,
+  "webpackServerPort": null
 }

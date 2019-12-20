@@ -45,7 +45,7 @@ export default class SelectBundle extends React.Component {
 
             isLoading: true,
             isSyncOperations: false,
-            version: '9.12.14',
+            version: '9.12.20',
             syncBG: {
                 lastDate: new Date(),
                 isSyncTickets: false,
@@ -156,14 +156,16 @@ export default class SelectBundle extends React.Component {
             const startTime = new Date(this.state.employee.start_timestamp);
             const finishTime = new Date(this.state.employee.finish_timestamp);
 
+           
+
+            let current_hr_today = (new Date(currentDate.format()).getTime() - startTime.getTime()) / 3600000;
+
             if (currentDate >= finishTime) {
                 currentDate = moment.tz(finishTime, this.state.employee.tz_name);
+                current_hr_today = 0;
                 clearInterval(this.state.timerUpdateDate);
                 // return;
             }
-
-            const current_hr_today = (new Date(currentDate.format()).getTime() - startTime.getTime()) / 3600000;
-
             this.setState({
                 currentDate,
                 employee: {
@@ -462,7 +464,7 @@ export default class SelectBundle extends React.Component {
     }
 
     async _onPress_Logout() {
-        clearInterval(this.state.timerUpdateDate);
+ 
         Actions.loginScreen();
     }
 
@@ -634,50 +636,50 @@ export default class SelectBundle extends React.Component {
                             <View style={styles.containerHeader}>
                                 <Text style={styles.textEarning}>V {this.state.version}  Emp.: {this.state.employee.empnum} - Name: {this.state.employee.firstname + " " + this.state.employee.lastname}</Text>
                             </View>
-                            <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.9), height: Math.round(DEVICE_HEIGHT * 0.75), backgroundColor: '#444', paddingLeft: 5 }}>
-                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.9), flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingBottom: 5 }}>
+                            <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.9), height: Math.round(DEVICE_HEIGHT * 0.75), backgroundColor: '#F1C40F', padding: 5, borderRadius:5 }}>
+                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.9), flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingBottom: 5}}>
                                     <TouchableOpacity style={{ backgroundColor: '' }}
                                         onPress={() => this.setState({ currentIndexScans: this.state.currentIndexScans >= 1 ? this.state.currentIndexScans - 1 : 0 })}
                                     >
-                                        <View style={{ alignItems: 'center', width: Math.round(DEVICE_WIDTH * 0.2), marginTop: 10, backgroundColor: this.state.currentIndexScans >= 1 ? '#CCC' : '#999', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
-                                            <Ionicons name="md-arrow-back" style={{ color: this.state.currentIndexScans >= 1 ? '#292929' : '#777' }} size={26}></Ionicons>
+                                        <View style={{ alignItems: 'center', width: Math.round(DEVICE_WIDTH * 0.2), marginTop: 10, backgroundColor: this.state.currentIndexScans >= 1 ? 'rgba(8,8,8,0.5)' : 'rgba(8,8,8,0.2)', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
+                                            <Ionicons name="md-arrow-back" style={{ color: this.state.currentIndexScans >= 1 ? '#FFF' : '#B7950B' }} size={26}></Ionicons>
                                         </View>
                                     </TouchableOpacity>
-                                    <View style={{ width: Math.round(DEVICE_WIDTH * 0.4), justifyContent: 'center', alignItems: 'center' }}>
-                                        <Text style={{ color: '#FFF' }}>{this.state.employee.historic[this.state.currentIndexScans].date}</Text>
+                                    <View style={{ width: Math.round(DEVICE_WIDTH * 0.4), justifyContent: 'center', alignItems: 'center'}}>
+                                        <Text style={{ color: '#080808', fontWeight: 'bold' }}>{this.state.employee.historic[this.state.currentIndexScans].date}</Text>
                                     </View>
                                     <TouchableOpacity style={{ backgroundColor: '' }}
                                         onPress={() => this.setState({ currentIndexScans: this.state.currentIndexScans + (this.state.currentIndexScans < (this.state.employee.historic.length - 1) ? 1 : 0) })}
                                     >
-                                        <View style={{ alignItems: 'center', width: Math.round(DEVICE_WIDTH * 0.2), marginTop: 10, backgroundColor: this.state.currentIndexScans < (this.state.employee.historic.length - 1) ? '#CCC' : '#999', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
-                                            <Ionicons name="md-arrow-forward" style={{ color: this.state.currentIndexScans < (this.state.employee.historic.length - 1) ? '#292929' : '#777' }} size={26}></Ionicons>
+                                        <View style={{ alignItems: 'center', width: Math.round(DEVICE_WIDTH * 0.2), marginTop: 10, backgroundColor: this.state.currentIndexScans < (this.state.employee.historic.length - 1) ? 'rgba(8,8,8,0.5)' : 'rgba(8,8,8,0.2)', borderRadius: 5, borderWidth: 0, borderColor: '#B7950B' }}>
+                                            <Ionicons name="md-arrow-forward" style={{ color: this.state.currentIndexScans < (this.state.employee.historic.length - 1) ? '#FFF' : '#B7950B' }} size={26}></Ionicons>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
-                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.8) + 7, height: Math.round(DEVICE_HEIGHT * 0.6) }}>
-                                    <View style={{ width: Math.round(DEVICE_WIDTH * 0.8), flexDirection: 'row' }}>
+                                <View style={{marginTop: 5, borderRadius: 5, width: Math.round(DEVICE_WIDTH * 0.8) + 7, height: Math.round(DEVICE_HEIGHT * 0.6) }}>
+                                    <View style={{ width: Math.round(DEVICE_WIDTH * 0.8), flexDirection: 'row', backgroundColor:'rgba(8,8,8,0.5)' }}>
                                         <Text style={{ ...styles.textTableCell }}>Bundle</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>Ticket</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>Operation</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>Start</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>End</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>Duration</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>Qnt</Text>
-                                        <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#111' }}>$</Text>
+                                        <Text style={{ ...styles.textTableCell}}>Ticket</Text>
+                                        <Text style={{ ...styles.textTableCell}}>Operation</Text>
+                                        <Text style={{ ...styles.textTableCell}}>Start</Text>
+                                        <Text style={{ ...styles.textTableCell}}>End</Text>
+                                        <Text style={{ ...styles.textTableCell}}>Duration</Text>
+                                        <Text style={{ ...styles.textTableCell}}>Qnt</Text>
+                                        <Text style={{ ...styles.textTableCell}}>$</Text>
                                     </View>
-                                    <ScrollView style={{ width: Math.round(DEVICE_WIDTH * 0.8), height: Math.round(DEVICE_HEIGHT * 0.6), backgroundColor: '#777' }}>
+                                    <ScrollView style={{ width: Math.round(DEVICE_WIDTH * 0.8), height: Math.round(DEVICE_HEIGHT * 0.6), backgroundColor: '' }}>
 
                                         {this.state.employee.historic[this.state.currentIndexScans].scans.length > 0 ?
-                                            this.state.employee.historic[this.state.currentIndexScans].scans.map(s => (
-                                                <View key={s.ticket} style={{ width: Math.round(DEVICE_WIDTH * 0.8) + 7, flexDirection: 'row' }}>
+                                            this.state.employee.historic[this.state.currentIndexScans].scans.map((s, index) => (
+                                                <View key={s.ticket} style={{ width: Math.round(DEVICE_WIDTH * 0.8), flexDirection: 'row', backgroundColor: index % 2 == 0 ? 'rgba(168,168,168,0.5)' : 'rgba(120,120,120,0.5)' }}>
                                                     <Text style={{ ...styles.textTableCell }}>{s.bundle}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{s.ticket}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{s.operation}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{s.start_time}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{s.end_time}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{moment.duration(s.duration, "seconds").format()}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{s.quantity}</Text>
-                                                    <Text style={{ ...styles.textTableCell, borderLeftWidth: 1, borderLeftColor: '#444' }}>{"$" + parseFloat(s.value).toFixed(2)}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{s.ticket}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{s.operation}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{s.start_time}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{s.end_time}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{moment.duration(s.duration, "seconds").format()}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{s.quantity}</Text>
+                                                    <Text style={{ ...styles.textTableCell }}>{"$" + parseFloat(s.value).toFixed(2)}</Text>
                                                 </View>
                                             ))
                                             :
@@ -686,6 +688,14 @@ export default class SelectBundle extends React.Component {
                                             </View>
                                         }
                                     </ScrollView>
+                                    <View style={{ width: Math.round(DEVICE_WIDTH * 0.8), flexDirection: 'row', backgroundColor:'rgba(8,8,8,0.8)'  }}>
+                                        <Text style={{ ...styles.textTableCell, fontWeight: 'bold', width: Math.round(DEVICE_WIDTH * 0.2),  }}>Average per hour</Text>
+                                        <Text style={{ ...styles.textTableCell, fontWeight: 'bold'}}>{"$" + parseFloat(this.state.employee.historic[this.state.currentIndexScans].avg).toFixed(2)}</Text>
+                                        <Text style={{ ...styles.textTableCell, fontWeight: 'bold', width: Math.round(DEVICE_WIDTH * 0.2),  }}>Efficiency</Text>
+                                        <Text style={{ ...styles.textTableCell, fontWeight: 'bold'}}>{parseFloat(this.state.employee.historic[this.state.currentIndexScans].efficiency * 100).toFixed(2) + "%"}</Text>
+                                        <Text style={{ ...styles.textTableCell, fontWeight: 'bold'}}>Total</Text>
+                                        <Text style={{ ...styles.textTableCell, fontWeight: 'bold'}}>{"$" + parseFloat(this.state.employee.historic[this.state.currentIndexScans].value).toFixed(2)}</Text>
+                                    </View>
                                 </View>
 
                             </View>
@@ -723,17 +733,16 @@ export default class SelectBundle extends React.Component {
                                 </TouchableOpacity>
                                 <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Start: {`${this.state.employee.start_time.split(':')[0]}:${this.state.employee.start_time.split(':')[1]}`}</Text>
                                 <Text style={{ ...styles.textEarning, fontWeight: 'bold', width: '50%', color: '#292929' }}>Finish:{`${this.state.employee.finish_time.split(':')[0]}:${this.state.employee.finish_time.split(':')[1]}`}</Text>
-                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', color: '#292929' }}>{this.state.currentDate.toLocaleString()}</Text>
+                                <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', color: '#292929' }}>{this.state.currentDate.toLocaleString().split('GMT')[0]}</Text>
 
                                 <Text style={{ ...styles.textEarning, color: "#FCF3CF", fontWeight: 'bold', textAlign: 'center', backgroundColor: '#D4AC0D', borderTopColor: '#B7950B', borderTopWidth: 5 }}>Wk.Goal %</Text>
                                 <Text style={{ ...styles.textEarning, color: "#FCF3CF", backgroundColor: '#D4AC0D', fontSize: 30, fontWeight: 'bold', textAlign: 'center', textAlignVertical: "center" }}>{parseFloat(((this.state.employee.total_hours * ((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today))) / this.state.employee.wk_goal) * 100).toFixed(2) + "%"}</Text>
                                 <Text style={{ ...styles.textEarning, color: '#292929', textAlign: 'center', textAlignVertical: "center" }}>Weekly Goal: {"$" + parseFloat(this.state.employee.wk_goal).toFixed(2)}</Text>
                             </View>
-                            <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.6), backgroundColor: '' }}>
+                            <View style={{ ...styles.containerItem, width: Math.round(DEVICE_WIDTH * 0.55), backgroundColor: '#F1C40F', borderRadius:5, borderBottomColor:'#F1C40F', marginLeft: Math.round(DEVICE_WIDTH * 0.05) }}>
 
-                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.13), backgroundColor: '#292929', color: '#292929' }} >
-                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', backgroundColor: '#292929', color: '#292929' }}>-</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
+                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.10), backgroundColor: '', color: '#292929', marginRight: Math.round(DEVICE_WIDTH * 0.03)}} >
+                                    
                                     {(this.state.employee.earn_today / this.state.employee.salary_today) > 0.95 ?
                                         <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#90Fc55' }}>Excelent!</Text>
                                         :
@@ -742,33 +751,31 @@ export default class SelectBundle extends React.Component {
                                             :
                                             <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', alignItems: 'center', color: '#F90f0f' }}>Warning!</Text>
                                     }
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#292929', color: '#292929' }}>-</Text>
-
                                 </View>
 
                                 <View style={{ width: Math.round(DEVICE_WIDTH * 0.13) }} >
-                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#292929', color: '#292929' }}>-</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Ticket</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hourly</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#69696A' }}>Efficiency</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#39393A' }}>Hr/Avg</Text>
+                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: 'rgba(100, 100, 100, 0.5)', color: 'rgb(100, 100, 100)' }}>-</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(168, 168, 168, 0.5)' }}>Ticket</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(120, 120, 120, 0.5)' }}>Hourly</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(168, 168, 168, 0.5)' }}>Efficiency</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(120, 120, 120, 0.5)' }}>Hr/Avg</Text>
                                 </View>
-                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
-                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Daily</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_today).toFixed(2)}</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat((this.state.employee.earn_today / this.state.employee.salary_today) * 100).toFixed(2) + "%"}</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.earn_today / this.state.employee.current_hr_today).toFixed(2)}</Text>
+                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.14) }} >
+                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: 'rgba(100, 100, 100, 0.5)' }}>Daily</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(168, 168, 168, 0.5)' }}>{"$" + parseFloat(this.state.employee.earn_today).toFixed(2)}</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(120, 120, 120, 0.5)' }}>{"$" + parseFloat(this.state.employee.salary_today).toFixed(2)}</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(168, 168, 168, 0.5)' }}>{this.state.employee.salary_today == 0 ? '-' : parseFloat((this.state.employee.earn_today / this.state.employee.salary_today) * 100).toFixed(2) + "%"}</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(120, 120, 120, 0.5)' }}>{this.state.employee.current_hr_today == 0 ? '-' : "$" + parseFloat(this.state.employee.earn_today / this.state.employee.current_hr_today).toFixed(2)}</Text>
                                 </View>
-                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.15) }} >
-                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: '#393939' }}>Weekly</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{"$" + parseFloat(this.state.employee.earn_week + this.state.employee.earn_today).toFixed(2)}</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat(this.state.employee.salary_week + this.state.employee.salary_today).toFixed(2)}</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#696969' }}>{parseFloat(((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.salary_week + this.state.employee.salary_today)) * 100).toFixed(2) + "%"}</Text>
-                                    <Text style={{ ...styles.textEarning, backgroundColor: '#393939' }}>{"$" + parseFloat((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
+                                <View style={{ width: Math.round(DEVICE_WIDTH * 0.14) }} >
+                                    <Text style={{ ...styles.textEarning, fontWeight: 'bold', textAlign: 'center', backgroundColor: 'rgba(100, 100, 100, 0.5)' }}>Weekly</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(168, 168, 168, 0.5)' }}>{"$" + parseFloat(this.state.employee.earn_week).toFixed(2)}</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(120, 120, 120, 0.5)' }}>{"$" + parseFloat(this.state.employee.salary_week + this.state.employee.salary_today).toFixed(2)}</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(168, 168, 168, 0.5)' }}>{parseFloat(((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.salary_week + this.state.employee.salary_today)) * 100).toFixed(2) + "%"}</Text>
+                                    <Text style={{ ...styles.textEarning, backgroundColor: 'rgba(120, 120, 120, 0.5)' }}>{"$" + parseFloat((this.state.employee.earn_week + this.state.employee.earn_today) / (this.state.employee.worked_hours_week + this.state.employee.current_hr_today)).toFixed(2)}</Text>
                                 </View>
                             </View>
-                            <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929', borderLeftWidth: 2, borderLeftColor: '#202020', borderTopLeftRadius: 5 }}>
+                            <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.45), backgroundColor: '#494949', marginTop: Math.round(DEVICE_HEIGHT * 0.05) }}>
                                 <Text style={{ ...styles.titleText, color: 'white', borderTopLeftRadius: 5 }}>Bundle {this.state.bundle ? this.state.bundle.id : '#'}</Text>
 
                                 <ScrollView style={styles.contentScroll}
@@ -799,14 +806,13 @@ export default class SelectBundle extends React.Component {
                                     </View>
                                 </ScrollView>
                             </View>
-                            <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
+                            <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.45), marginTop: Math.round(DEVICE_HEIGHT * 0.05), backgroundColor: '#494949'}}>
                                 <Text style={{ ...styles.titleText, color: 'white' }}>Operation {this.state.operation ? this.state.operation : '#'}</Text>
                                 {this.state.isSyncOperations ?
                                     <View style={{ ...styles.contentScroll, justifyContent: 'center', alignItems: 'center' }}>
                                         <Ionicons name="md-walk" style={{ color: '#FFF' }} size={50}></Ionicons>
                                     </View>
                                     :
-
                                     <ScrollView style={styles.contentScroll}>
                                         {this.state.bundle ? this.state.bundle.operations.map(o => (
                                             <TouchableOpacity key={o.id} style={styles.opBtn} activeOpacity={0.7} onPress={() => this._selectOperation(o)}>
@@ -825,7 +831,7 @@ export default class SelectBundle extends React.Component {
                                     </ScrollView>
                                 }
                             </View>
-                            <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.5), padding: 10, backgroundColor: '#494949', borderTopWidth: 5, borderTopColor: '#292929' }}>
+                            <View style={{ ...styles.containerItem, height: Math.round(DEVICE_HEIGHT * 0.45), marginTop: Math.round(DEVICE_HEIGHT * 0.05), padding: 10, backgroundColor: '#494949' }}>
                                 {this.state.timerVisible ?
                                     <View style={{ width: '100%', justifyContent: 'center', alignContent: 'center' }}>
                                         <TouchableOpacity style={styles.buttonFinish}
@@ -871,10 +877,9 @@ const DEVICE_HEIGHT = Math.round(isLandscape ? Dimensions.get('window').height :
 
 const styles = StyleSheet.create({
     container: {
-        paddingTop: 3,
         flex: 1,
         alignItems: "center",
-        backgroundColor: '#292929'
+        backgroundColor: '#D8D8D8'
     },
     containerContent: {
         flexWrap: 'wrap',
@@ -886,7 +891,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: 'center',
         width: '100%',
-        height: Math.round(DEVICE_HEIGHT * 0.1)
+        backgroundColor: 'rgba(8,8,8,0.5)',
+        height: Math.round(DEVICE_HEIGHT * 0.07),
+        marginBottom: Math.round(DEVICE_HEIGHT * 0.03)
     },
     containerSide: {
         backgroundColor: '#FFF',
