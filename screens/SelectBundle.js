@@ -45,7 +45,7 @@ export default class SelectBundle extends React.Component {
 
             isLoading: true,
             isSyncOperations: false,
-            version: '9.12.20',
+            version: '0.01.28',
             syncBG: {
                 lastDate: new Date(),
                 isSyncTickets: false,
